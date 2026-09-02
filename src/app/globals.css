@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --looms-black: #000000; --looms-white: #ffffff; --looms-offwhite: #f7f7f5; --looms-lightgray: #e5e5e5; --looms-darkgray: #222222; --looms-cream: #ffffff; --looms-gray: #222222; --looms-teal: #000000; --font-display: Georgia; --font-poppins: Arial; }
+* { box-sizing: border-box; }
+html { overflow-x: clip; background: var(--looms-white); }
+body { min-width: 320px; margin: 0; overflow-x: clip; color: var(--looms-black); background: var(--looms-white); font-family: var(--font-poppins), Arial, sans-serif; }
+:focus-visible { outline: 2px solid var(--looms-teal); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+
+/* Phase 2 monochrome editorial overrides for legacy component utility hooks. */
+header { background: #000 !important; color: #fff; }
+header .text-looms-teal { color: #fff; }
+[aria-label="Mobile navigation"] { background: #000 !important; color: #fff; }
+[class*="bg-[#d3c4b6]"] { background-color: #fff !important; }
+[class*="bg-[#b98f75]"] { background-color: #000 !important; color: #fff; }
+[class*="bg-[#d0c2b5]"] { background-color: #e5e5e5 !important; }

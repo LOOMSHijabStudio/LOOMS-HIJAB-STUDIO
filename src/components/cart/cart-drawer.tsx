@@ -1,0 +1,14 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useCart } from "./cart-provider";
+import { Icon } from "@/components/ui/icons";
+
+const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
+
+export function CartDrawer() {
+  const { items, isOpen, setOpen, updateQuantity, removeItem, clearCart, itemCount, subtotal } = useCart();
+  if (!isOpen) return null;
+  return <div aria-hidden={!isOpen}><button aria-label="Close cart" onClick={() => setOpen(false)} className="fixed inset-0 z-40 bg-looms-teal/40" /><aside aria-label="Shopping cart" className="fixed right-0 top-0 z-50 flex h-dvh w-full max-w-md flex-col bg-looms-cream p-6"><div className="flex items-center justify-between border-b border-looms-teal/20 pb-5"><h2 className="font-display text-2xl tracking-wide">Your Bag <span className="text-sm text-looms-gray">({itemCount})</span></h2><button onClick={() => setOpen(false)} aria-label="Close cart"><Icon name="close" className="h-5 w-5" /></button></div><div className="flex-1 overflow-y-auto py-5">{items.length === 0 ? <p className="text-sm text-looms-gray">Your bag is currently empty.</p> : items.map((item) => <div key={`${item.productId}-${item.variantId}`} className="mb-5 flex gap-4"><Image src={item.product.image} alt="" width={76} height={96} className="h-24 w-[76px] object-cover" /><div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><div><p className="font-medium">{item.product.name}</p><p className="mt-1 text-xs text-looms-gray">{item.variant}</p></div><button onClick={() => removeItem(item.productId, item.variantId)} className="text-xs underline">Remove</button></div><div className="mt-3 flex items-center justify-between"><div className="flex items-center border border-looms-teal/25"><button aria-label="Decrease quantity" onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)} className="p-1.5"><Icon name="minus" className="h-3.5 w-3.5" /></button><span className="w-7 text-center text-xs">{item.quantity}</span><button aria-label="Increase quantity" onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)} className="p-1.5"><Icon name="plus" className="h-3.5 w-3.5" /></button></div><span className="text-sm">{money((item.product.salePrice ?? item.product.price) * item.quantity)}</span></div></div></div>)}</div>{items.length > 0 && <div className="border-t border-looms-teal/20 pt-5"><div className="flex justify-between text-sm"><span>Subtotal</span><span>{money(subtotal)}</span></div><div className="mt-4 flex gap-3"><button onClick={clearCart} className="border border-looms-teal px-4 py-3 text-xs font-medium tracking-[0.1em]">CLEAR</button><Link href="/checkout" onClick={() => setOpen(false)} className="flex-1 bg-looms-teal px-4 py-3 text-center text-xs font-medium tracking-[0.1em] text-looms-cream">CHECKOUT</Link></div></div>}</aside></div>;
+}
