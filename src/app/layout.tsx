@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
+
 import "./globals.css";
+
+import { WishlistProvider } from "@/components/wishlist/wishlist-provider";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -13,7 +16,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"
   ),
-  title: { default: "LOOMS", template: "%s | LOOMS" },
+  title: {
+    default: "LOOMS",
+    template: "%s | LOOMS",
+  },
   description: "Premium Indonesian hijab and fashion.",
   openGraph: {
     type: "website",
@@ -31,7 +37,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={poppins.variable}>{children}</body>
+      <body className={poppins.variable}>
+        <WishlistProvider>
+          {children}
+        </WishlistProvider>
+      </body>
     </html>
   );
 }
