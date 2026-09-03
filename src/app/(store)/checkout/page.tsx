@@ -8,7 +8,51 @@ import { buildCheckoutWhatsAppUrl } from "@/lib/checkout-whatsapp";
 const money = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 const inputClass =
   "w-full border border-looms-teal/20 bg-white px-3 py-3 text-sm outline-none transition focus:border-looms-teal";
+const shippingRates: Record<string, number> = {
+  "DKI Jakarta": 10000,
+  "Jawa Barat": 10000,
+  "Banten": 10000,
+  "Jawa Tengah": 15000,
+  "DI Yogyakarta": 15000,
+  "Jawa Timur": 15000,
 
+  "Sumatera Selatan": 30000,
+  "Lampung": 30000,
+  "Sumatera Barat": 35000,
+  "Jambi": 35000,
+  "Bengkulu": 35000,
+  "Riau": 35000,
+  "Sumatera Utara": 40000,
+  "Aceh": 45000,
+  "Kepulauan Riau": 40000,
+  "Kepulauan Bangka Belitung": 40000,
+
+  "Bali": 30000,
+  "Nusa Tenggara Barat": 35000,
+  "Nusa Tenggara Timur": 40000,
+
+  "Kalimantan Barat": 40000,
+  "Kalimantan Tengah": 40000,
+  "Kalimantan Selatan": 40000,
+  "Kalimantan Timur": 45000,
+  "Kalimantan Utara": 50000,
+
+  "Sulawesi Selatan": 45000,
+  "Sulawesi Barat": 45000,
+  "Sulawesi Tengah": 50000,
+  "Sulawesi Tenggara": 50000,
+  "Sulawesi Utara": 50000,
+  "Gorontalo": 50000,
+
+  "Maluku": 55000,
+  "Maluku Utara": 60000,
+  "Papua": 65000,
+  "Papua Barat": 65000,
+  "Papua Selatan": 70000,
+  "Papua Tengah": 70000,
+  "Papua Pegunungan": 75000,
+  "Papua Barat Daya": 70000,
+};
 export default function CheckoutPage() {
   const { items, subtotal } = useCart();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -23,7 +67,12 @@ export default function CheckoutPage() {
     fullAddress: "",
     notes: "",
   });
-  const shipping = subtotal >= 500000 ? 0 : 15000;
+  const shipping =
+  subtotal >= 500000
+    ? 0
+    : form.province
+      ? shippingRates[form.province] ?? 0
+      : 0;
 
   function update(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -133,14 +182,22 @@ export default function CheckoutPage() {
             </h2>
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <label className="text-sm">
-                Province
-                <input
-                  required
-                  value={form.province}
-                  onChange={(event) => update("province", event.target.value)}
-                  className={`${inputClass} mt-2`}
-                />
-              </label>
+  Province
+  <select
+    required
+    value={form.province}
+    onChange={(event) => update("province", event.target.value)}
+    className={`${inputClass} mt-2`}
+  >
+    <option value="">Select province</option>
+
+    {Object.keys(shippingRates).map((province) => (
+      <option key={province} value={province}>
+        {province}
+      </option>
+    ))}
+  </select>
+</label>
               <label className="text-sm">
                 City / Regency
                 <input
