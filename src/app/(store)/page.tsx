@@ -6,36 +6,17 @@ import { ProductGrid } from "@/components/catalog/product-grid";
 import { getWebsiteAppearance } from "@/server/store/appearance";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
+import type { DemoProduct } from "@/features/catalog/demo-data";
 
 export const dynamic = "force-dynamic";
 
-type CatalogProduct = {
-  id: string;
-  slug: string;
-  name: string;
-  category: string;
-  price: number;
-  salePrice?: number;
-  image: string;
-  imageAlt: string;
-  description?: string;
-  material?: string;
-  care?: string;
-  stock: number;
-  isNew: boolean;
-  isBestSeller: boolean;
-  variants: string[];
-  variantIds: Record<string, string>;
-};
-
-async function getCatalogProducts(): Promise<CatalogProduct[]> {
+async function getCatalogProducts(): Promise<DemoProduct[]> {
   // =====================================================
   // WEBSITE PUBLIC HANYA MENGAMBIL DATA DARI SUPABASE
   // =====================================================
 
   if (!isSupabaseConfigured()) {
     console.error("Supabase belum dikonfigurasi.");
-
     return [];
   }
 
@@ -75,8 +56,8 @@ async function getCatalogProducts(): Promise<CatalogProduct[]> {
       return [];
     }
 
-    return (data || []).map((product) => {
-      const images = (product.product_images || []) as Array<{
+    return (data ?? []).map((product) => {
+      const images = (product.product_images ?? []) as Array<{
         storage_path: string;
         is_primary: boolean;
         position: number;
@@ -84,9 +65,9 @@ async function getCatalogProducts(): Promise<CatalogProduct[]> {
 
       // Cari gambar utama
       const primaryImage =
-        images.find((image) => image.is_primary) ||
+        images.find((image) => image.is_primary) ??
         [...images].sort(
-          (a, b) => (a.position || 0) - (b.position || 0)
+          (a, b) => (a.position ?? 0) - (b.position ?? 0)
         )[0];
 
       let imageUrl = "/images/editorial-mocha.svg";
@@ -103,21 +84,33 @@ async function getCatalogProducts(): Promise<CatalogProduct[]> {
         slug: product.slug,
         name: product.name,
         category: "The Essential Edit",
-        price: Number(product.price),
+
+        price: Number(product.price ?? 0),
+
         salePrice:
           product.sale_price !== null &&
           product.sale_price !== undefined
             ? Number(product.sale_price)
             : undefined,
+
         image: imageUrl,
         imageAlt: product.name,
-        description: product.description || "",
-        material: product.material || "Premium Satin Voile",
+
+        description: product.description ?? "",
+
+        material:
+          product.material ?? "Premium Satin Voile",
+
         care: "Hand wash cold.",
-        stock: Number(product.stock || 0),
+
+        stock: Number(product.stock ?? 0),
+
         isNew: Boolean(product.is_new_arrival),
+
         isBestSeller: Boolean(product.is_best_seller),
+
         variants: [],
+
         variantIds: {},
       };
     });
@@ -131,9 +124,10 @@ export default async function HomePage() {
   const appearance = getWebsiteAppearance();
 
   // =====================================================
-  // AMBIL PRODUK DARI SUPABASE
-  // BUKAN DARI demoProducts / localProducts
+  // AMBIL PRODUK LANGSUNG DARI SUPABASE
+  // TIDAK MENGGUNAKAN demoProducts
   // =====================================================
+
   const gridProducts = await getCatalogProducts();
 
   return (
