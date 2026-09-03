@@ -29,25 +29,44 @@ interface ProductListResponse {
   error?: string;
 }
 
+/**
+ * GET /api/admin/products
+ *
+ * Mengambil daftar produk dari Supabase.
+ */
 export async function GET(
   request: NextRequest
 ): Promise<NextResponse<ProductListResponse>> {
   try {
+    // ================================
+    // 1. VERIFIKASI ADMIN
+    // ================================
     const verification = await verifyAdminRequest();
+
     if (!verification.success) {
       return verification.response as NextResponse<ProductListResponse>;
     }
 
     const hasPermission = await isAdmin();
+
     if (!hasPermission) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: "Unauthorized",
+        },
         { status: 403 }
       );
     }
 
+    // ================================
+    // 2. JIKA SUPABASE BELUM DISET
+    // ================================
+    // Hanya gunakan data lokal jika memang
+    // Supabase belum dikonfigurasi.
     if (!isSupabaseConfigured()) {
       const local = getLocalProducts();
+
       return NextResponse.json({
         success: true,
         products: local,
@@ -55,16 +74,34 @@ export async function GET(
       });
     }
 
+    // ================================
+    // 3. CONNECT KE SUPABASE
+    // ================================
     const client = createSupabaseServiceClient();
 
     const searchParams = request.nextUrl.searchParams;
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
-    const pageSize = Math.min(100, parseInt(searchParams.get("limit") || "50"));
+
+    const page = Math.max(
+      1,
+      parseInt(searchParams.get("page") || "1", 10)
+    );
+
+    const pageSize = Math.min(
+      100,
+      Math.max(
+        1,
+        parseInt(searchParams.get("limit") || "50", 10)
+      )
+    );
+
     const status = searchParams.get("status");
     const search = searchParams.get("search");
 
     const skip = (page - 1) * pageSize;
 
+    // ================================
+    // 4. QUERY PRODUCTS
+    // ================================
     let query = client
       .from("products")
       .select(
@@ -90,105 +127,197 @@ export async function GET(
         { count: "exact" }
       );
 
+    // Filter status jika diberikan
     if (status) {
       query = query.eq("status", status);
     }
 
+    // Search nama / SKU
     if (search) {
       query = query.or(
         `name.ilike.%${search}%,sku.ilike.%${search}%`
       );
     }
 
-    const { data: products, error, count } = await query
+    // ================================
+    // 5. EKSEKUSI QUERY
+    // ================================
+    const {
+      data: products,
+      error,
+      count,
+    } = await query
       .order("created_at", { ascending: false })
       .range(skip, skip + pageSize - 1);
 
+    // ================================
+    // 6. JIKA SUPABASE ERROR
+    // ================================
+    // JANGAN fallback ke demo products.
+    // Kita harus menampilkan error sebenarnya.
     if (error) {
       console.error("Products list error:", error);
-      const local = getLocalProducts();
-      return NextResponse.json({
-        success: true,
-        products: local,
-        total: local.length,
-      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Gagal mengambil produk dari Supabase: ${error.message}`,
+        },
+        { status: 500 }
+      );
     }
 
-    const formatted = (products || []).map((p) => {
-      const images = (p.product_images || []) as Array<{ storage_path: string; is_primary: boolean }>;
+    // ================================
+    // 7. FORMAT DATA
+    // ================================
+    const formatted = (products || []).map((product) => {
+      const images = (product.product_images || []) as Array<{
+        storage_path: string;
+        is_primary: boolean;
+      }>;
+
+      // Cari gambar utama
       const primaryImagePath =
         images.find((img) => img.is_primary)?.storage_path ||
         images[0]?.storage_path;
-      const primaryImg = primaryImagePath
-        ? client.storage.from("product-images").getPublicUrl(primaryImagePath).data.publicUrl
-        : "/images/editorial-mocha.svg";
+
+      let primaryImage = "/images/editorial-mocha.svg";
+
+      if (primaryImagePath) {
+        const publicUrl = client.storage
+          .from("product-images")
+          .getPublicUrl(primaryImagePath);
+
+        primaryImage = publicUrl.data.publicUrl;
+      }
+
       return {
-        id: p.id,
-        name: p.name,
-        sku: p.sku,
-        price: Number(p.price),
-        sale_price: p.sale_price ? Number(p.sale_price) : null,
-        stock: Number(p.stock),
-        status: p.status,
-        description: p.description || "",
-        material: p.material || "",
-        is_featured: Boolean(p.is_featured),
-        image: primaryImg,
-        created_at: p.created_at,
-        updated_at: p.updated_at,
+        id: product.id,
+        name: product.name,
+        sku: product.sku,
+        price: Number(product.price),
+        sale_price:
+          product.sale_price !== null &&
+          product.sale_price !== undefined
+            ? Number(product.sale_price)
+            : null,
+        stock: Number(product.stock || 0),
+        status: product.status,
+        description: product.description || "",
+        material: product.material || "",
+        is_featured: Boolean(product.is_featured),
+        image: primaryImage,
+        created_at: product.created_at,
+        updated_at: product.updated_at,
       };
     });
 
+    // ================================
+    // 8. RETURN DATA
+    // ================================
     return NextResponse.json({
       success: true,
       products: formatted,
-      total: count || formatted.length,
+      total: count ?? formatted.length,
     });
   } catch (error) {
+    // ================================
+    // 9. ERROR INTERNAL
+    // ================================
     console.error("Products endpoint error:", error);
-    const local = getLocalProducts();
-    return NextResponse.json({
-      success: true,
-      products: local,
-      total: local.length,
-    });
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan internal";
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: message,
+      },
+      { status: 500 }
+    );
   }
 }
 
+/**
+ * POST /api/admin/products
+ *
+ * Membuat produk baru.
+ */
 export async function POST(request: NextRequest) {
   try {
+    // ================================
+    // 1. VERIFIKASI ADMIN
+    // ================================
     const verification = await verifyAdminRequest();
+
     if (!verification.success) {
       return verification.response;
     }
 
     const hasPermission = await isAdmin();
+
     if (!hasPermission) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: "Unauthorized",
+        },
         { status: 403 }
       );
     }
 
+    // ================================
+    // 2. BACA BODY
+    // ================================
     const body = await request.json();
 
-    if (!body.name || !body.price) {
+    if (!body.name || body.price === undefined || body.price === null) {
       return NextResponse.json(
-        { success: false, error: "Nama produk dan harga harus diisi" },
+        {
+          success: false,
+          error: "Nama produk dan harga harus diisi",
+        },
         { status: 400 }
       );
     }
 
-    const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const sku = body.sku || `LMS-${slug.toUpperCase().slice(0, 8)}-${Math.floor(100 + Math.random() * 900)}`;
+    // ================================
+    // 3. BUAT SLUG
+    // ================================
+    const slug =
+      body.slug ||
+      body.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
 
+    // ================================
+    // 4. BUAT SKU
+    // ================================
+    const sku =
+      body.sku ||
+      `LMS-${slug.toUpperCase().slice(0, 8)}-${Math.floor(
+        100 + Math.random() * 900
+      )}`;
+
+    // ================================
+    // 5. JIKA SUPABASE BELUM DISET
+    // ================================
     if (!isSupabaseConfigured()) {
       const newProduct = addLocalProduct({
         name: body.name,
         slug,
         sku,
         price: Number(body.price),
-        sale_price: body.sale_price ? Number(body.sale_price) : null,
+        sale_price:
+          body.sale_price !== undefined &&
+          body.sale_price !== null &&
+          body.sale_price !== ""
+            ? Number(body.sale_price)
+            : null,
         stock: Number(body.stock || 0),
         status: body.status || "ACTIVE",
         is_featured: Boolean(body.is_featured),
@@ -201,26 +330,43 @@ export async function POST(request: NextRequest) {
         action: "admin.product_created",
         entityType: "product",
         entityId: newProduct.id,
-        metadata: { name: newProduct.name, price: newProduct.price },
+        metadata: {
+          name: newProduct.name,
+          price: newProduct.price,
+        },
       });
 
-      return NextResponse.json({
-        success: true,
-        message: "Produk berhasil ditambahkan",
-        product: newProduct,
-      }, { status: 201 });
+      return NextResponse.json(
+        {
+          success: true,
+          message: "Produk berhasil ditambahkan",
+          product: newProduct,
+        },
+        { status: 201 }
+      );
     }
 
+    // ================================
+    // 6. CONNECT KE SUPABASE
+    // ================================
     const client = createSupabaseServiceClient();
 
-    const { data: newProd, error: insertError } = await client
+    // ================================
+    // 7. INSERT PRODUCT
+    // ================================
+    const { data: newProduct, error: insertError } = await client
       .from("products")
       .insert({
         name: body.name,
         slug,
         sku,
         price: Number(body.price),
-        sale_price: body.sale_price ? Number(body.sale_price) : null,
+        sale_price:
+          body.sale_price !== undefined &&
+          body.sale_price !== null &&
+          body.sale_price !== ""
+            ? Number(body.sale_price)
+            : null,
         stock: Number(body.stock || 0),
         status: body.status || "ACTIVE",
         description: body.description || null,
@@ -230,30 +376,63 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single();
 
-    if (insertError || !newProd) {
-      console.error("Supabase insert product error:", insertError);
+    // ================================
+    // 8. JIKA INSERT GAGAL
+    // ================================
+    if (insertError || !newProduct) {
+      console.error(
+        "Supabase insert product error:",
+        insertError
+      );
+
       return NextResponse.json(
-        { success: false, error: insertError?.message || "Gagal menyimpan produk" },
+        {
+          success: false,
+          error:
+            insertError?.message ||
+            "Gagal menyimpan produk ke Supabase",
+        },
         { status: 500 }
       );
     }
 
+    // ================================
+    // 9. AUDIT LOG
+    // ================================
     await logAuditEvent({
       action: "admin.product_created",
       entityType: "product",
-      entityId: newProd.id,
-      metadata: { name: body.name, price: body.price },
+      entityId: newProduct.id,
+      metadata: {
+        name: body.name,
+        price: body.price,
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Produk berhasil ditambahkan",
-      productId: newProd.id,
-    }, { status: 201 });
+    // ================================
+    // 10. BERHASIL
+    // ================================
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Produk berhasil ditambahkan",
+        productId: newProduct.id,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Create product error:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Terjadi kesalahan internal";
+
     return NextResponse.json(
-      { success: false, error: "Terjadi kesalahan internal" },
+      {
+        success: false,
+        error: message,
+      },
       { status: 500 }
     );
   }
