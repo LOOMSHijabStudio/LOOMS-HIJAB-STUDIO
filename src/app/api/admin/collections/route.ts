@@ -8,8 +8,13 @@ import { logAuditEvent } from "@/server/auth/audit";
 
 export const dynamic = "force-dynamic";
 
+// ==========================================
+// TYPES
+// ==========================================
+
 interface CollectionListResponse {
   success: boolean;
+
   collections?: Array<{
     id: string;
     name: string;
@@ -20,8 +25,24 @@ interface CollectionListResponse {
     position: number;
     product_count?: number;
   }>;
+
   error?: string;
 }
+
+interface CreateCollectionResponse {
+  success: boolean;
+  collectionId?: string;
+  error?: string;
+}
+
+interface DeleteCollectionResponse {
+  success: boolean;
+  error?: string;
+}
+
+// ==========================================
+// GET COLLECTIONS
+// ==========================================
 
 export async function GET(
   _request: NextRequest
@@ -29,14 +50,20 @@ export async function GET(
   void _request;
 
   try {
-    // Check admin authentication
+    // --------------------------------------
+    // Check authentication
+    // --------------------------------------
+
     const verification = await verifyAdminRequest();
 
     if (!verification.success) {
       return verification.response as NextResponse<CollectionListResponse>;
     }
 
+    // --------------------------------------
     // Check admin / owner role
+    // --------------------------------------
+
     const isAdmin = await userHasRole("ADMIN");
     const isOwner = await userHasRole("OWNER");
 
@@ -50,12 +77,16 @@ export async function GET(
       );
     }
 
+    // --------------------------------------
+    // Supabase
+    // --------------------------------------
+
     const client = createSupabaseServiceClient();
 
-    // Get collections first.
-    // We intentionally do NOT use collection_products(count)
-    // here so the endpoint does not depend on Supabase relationship
-    // detection.
+    // --------------------------------------
+    // Get collections
+    // --------------------------------------
+
     const { data: collections, error: collectionsError } = await client
       .from("collections")
       .select(
@@ -69,10 +100,15 @@ export async function GET(
         position
         `
       )
-      .order("position", { ascending: true });
+      .order("position", {
+        ascending: true,
+      });
 
     if (collectionsError) {
-      console.error("Collections list error:", collectionsError);
+      console.error(
+        "Collections list error:",
+        collectionsError
+      );
 
       return NextResponse.json(
         {
@@ -83,7 +119,10 @@ export async function GET(
       );
     }
 
-    // Get product count for every collection.
+    // --------------------------------------
+    // Get product count
+    // --------------------------------------
+
     const collectionsWithCount = await Promise.all(
       (collections ?? []).map(async (collection) => {
         const { count, error: countError } = await client
@@ -103,23 +142,40 @@ export async function GET(
 
         return {
           id: String(collection.id),
+
           name: String(collection.name),
+
           slug: String(collection.slug),
-          description: collection.description as string | null,
-          cover_image_path: collection.cover_image_path as string | null,
-          banner_image_path: collection.banner_image_path as string | null,
+
+          description:
+            collection.description as string | null,
+
+          cover_image_path:
+            collection.cover_image_path as string | null,
+
+          banner_image_path:
+            collection.banner_image_path as string | null,
+
           position: Number(collection.position),
+
           product_count: count ?? 0,
         };
       })
     );
+
+    // --------------------------------------
+    // Response
+    // --------------------------------------
 
     return NextResponse.json({
       success: true,
       collections: collectionsWithCount,
     });
   } catch (error) {
-    console.error("Collections endpoint error:", error);
+    console.error(
+      "Collections GET endpoint error:",
+      error
+    );
 
     return NextResponse.json(
       {
@@ -131,24 +187,28 @@ export async function GET(
   }
 }
 
-interface CreateCollectionResponse {
-  success: boolean;
-  collectionId?: string;
-  error?: string;
-}
+// ==========================================
+// CREATE COLLECTION
+// ==========================================
 
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<CreateCollectionResponse>> {
   try {
-    // Check admin authentication
+    // --------------------------------------
+    // Check authentication
+    // --------------------------------------
+
     const verification = await verifyAdminRequest();
 
     if (!verification.success) {
       return verification.response as NextResponse<CreateCollectionResponse>;
     }
 
+    // --------------------------------------
     // Check admin / owner role
+    // --------------------------------------
+
     const isAdmin = await userHasRole("ADMIN");
     const isOwner = await userHasRole("OWNER");
 
@@ -162,12 +222,24 @@ export async function POST(
       );
     }
 
+    // --------------------------------------
+    // Read body
+    // --------------------------------------
+
     const body = await request.json();
 
-    // Validate request body
+    // --------------------------------------
+    // Validate
+    // --------------------------------------
+
     const validation = collectionSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error(
+        "Collection validation error:",
+        validation.error.flatten()
+      );
+
       return NextResponse.json(
         {
           success: false,
@@ -179,17 +251,28 @@ export async function POST(
 
     const data = validation.data;
 
+    // --------------------------------------
+    // Supabase
+    // --------------------------------------
+
     const client = createSupabaseServiceClient();
 
+    // --------------------------------------
     // Check duplicate slug
-    const { data: existing, error: existingError } = await client
-      .from("collections")
-      .select("id")
-      .eq("slug", data.slug)
-      .maybeSingle();
+    // --------------------------------------
+
+    const { data: existing, error: existingError } =
+      await client
+        .from("collections")
+        .select("id")
+        .eq("slug", data.slug)
+        .maybeSingle();
 
     if (existingError) {
-      console.error("Collection slug check error:", existingError);
+      console.error(
+        "Collection slug check error:",
+        existingError
+      );
 
       return NextResponse.json(
         {
@@ -210,44 +293,74 @@ export async function POST(
       );
     }
 
-    // Get the current highest position
-    const { data: maxPosition, error: positionError } = await client
+    // --------------------------------------
+    // Get next position
+    // --------------------------------------
+
+    const {
+      data: maxPosition,
+      error: positionError,
+    } = await client
       .from("collections")
       .select("position")
-      .order("position", { ascending: false })
+      .order("position", {
+        ascending: false,
+      })
       .limit(1)
       .maybeSingle();
 
     if (positionError) {
-      console.error("Collection position error:", positionError);
+      console.error(
+        "Collection position error:",
+        positionError
+      );
 
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to determine collection position",
+          error:
+            "Failed to determine collection position",
         },
         { status: 500 }
       );
     }
 
-    const position = Number(maxPosition?.position ?? 0) + 1;
+    const position =
+      Number(maxPosition?.position ?? 0) + 1;
 
-    // Create collection
-    const { data: newCollection, error: insertError } = await client
+    // --------------------------------------
+    // Insert collection
+    // --------------------------------------
+
+    const {
+      data: newCollection,
+      error: insertError,
+    } = await client
       .from("collections")
       .insert({
         name: data.name,
+
         slug: data.slug,
-        description: data.description || null,
-        cover_image_path: data.cover_image_path || null,
-        banner_image_path: data.banner_image_path || null,
+
+        description:
+          data.description || null,
+
+        cover_image_path:
+          data.cover_image_path || null,
+
+        banner_image_path:
+          data.banner_image_path || null,
+
         position,
       })
       .select("id")
       .single();
 
     if (insertError || !newCollection) {
-      console.error("Collection creation error:", insertError);
+      console.error(
+        "Collection creation error:",
+        insertError
+      );
 
       return NextResponse.json(
         {
@@ -258,26 +371,235 @@ export async function POST(
       );
     }
 
+    // --------------------------------------
     // Audit log
+    // --------------------------------------
+
     await logAuditEvent({
       action: "admin.collection_created",
+
       entityType: "collection",
+
       entityId: newCollection.id,
+
       metadata: {
         name: data.name,
+
         slug: data.slug,
       },
     });
+
+    // --------------------------------------
+    // Response
+    // --------------------------------------
 
     return NextResponse.json(
       {
         success: true,
         collectionId: newCollection.id,
       },
-      { status: 201 }
+      {
+        status: 201,
+      }
     );
   } catch (error) {
-    console.error("Create collection endpoint error:", error);
+    console.error(
+      "Create collection endpoint error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ==========================================
+// DELETE COLLECTION
+// ==========================================
+
+export async function DELETE(
+  request: NextRequest
+): Promise<NextResponse<DeleteCollectionResponse>> {
+  try {
+    // --------------------------------------
+    // Check authentication
+    // --------------------------------------
+
+    const verification = await verifyAdminRequest();
+
+    if (!verification.success) {
+      return verification.response as NextResponse<DeleteCollectionResponse>;
+    }
+
+    // --------------------------------------
+    // Check admin / owner role
+    // --------------------------------------
+
+    const isAdmin = await userHasRole("ADMIN");
+    const isOwner = await userHasRole("OWNER");
+
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 403 }
+      );
+    }
+
+    // --------------------------------------
+    // Get collection ID
+    // --------------------------------------
+
+    const { searchParams } =
+      new URL(request.url);
+
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Collection ID is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    // --------------------------------------
+    // Supabase
+    // --------------------------------------
+
+    const client =
+      createSupabaseServiceClient();
+
+    // --------------------------------------
+    // Find collection
+    // --------------------------------------
+
+    const {
+      data: collection,
+      error: findError,
+    } = await client
+      .from("collections")
+      .select("id, name, slug")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (findError) {
+      console.error(
+        "Find collection error:",
+        findError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to find collection",
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!collection) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Collection not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    // --------------------------------------
+    // Delete product relationships first
+    // --------------------------------------
+
+    const {
+      error: relationError,
+    } = await client
+      .from("collection_products")
+      .delete()
+      .eq("collection_id", id);
+
+    if (relationError) {
+      console.error(
+        "Delete collection products error:",
+        relationError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Failed to remove products from collection",
+        },
+        { status: 500 }
+      );
+    }
+
+    // --------------------------------------
+    // Delete collection
+    // --------------------------------------
+
+    const {
+      error: deleteError,
+    } = await client
+      .from("collections")
+      .delete()
+      .eq("id", id);
+
+    if (deleteError) {
+      console.error(
+        "Delete collection error:",
+        deleteError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to delete collection",
+        },
+        { status: 500 }
+      );
+    }
+
+    // --------------------------------------
+    // Audit log
+    // --------------------------------------
+
+    await logAuditEvent({
+      action: "admin.collection_deleted",
+
+      entityType: "collection",
+
+      entityId: id,
+
+      metadata: {
+        name: collection.name,
+
+        slug: collection.slug,
+      },
+    });
+
+    // --------------------------------------
+    // Response
+    // --------------------------------------
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error(
+      "Delete collection endpoint error:",
+      error
+    );
 
     return NextResponse.json(
       {
