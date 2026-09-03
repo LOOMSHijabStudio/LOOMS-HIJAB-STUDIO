@@ -2,22 +2,30 @@
 
 import { useState } from "react";
 
+import type { DemoProduct } from "@/features/catalog/demo-data";
+import { useCart } from "@/components/cart/cart-provider";
+
 type ProductPurchaseProps = {
-  productId: string;
+  product: DemoProduct;
   variantId: string | null;
+  variant: string;
   price: number;
   maxQuantity: number;
   disabled: boolean;
 };
 
 export function ProductPurchase({
-  productId,
+  product,
   variantId,
+  variant,
   price,
   maxQuantity,
   disabled,
 }: ProductPurchaseProps) {
+  const { addItem } = useCart();
+
   const [quantity, setQuantity] = useState(1);
+  const [adding, setAdding] = useState(false);
 
   const canBuy = !disabled && maxQuantity > 0;
 
@@ -27,41 +35,65 @@ export function ProductPurchase({
 
   function increase() {
     setQuantity((current) =>
-      Math.min(Math.max(1, maxQuantity), current + 1)
+      Math.min(maxQuantity, current + 1)
     );
   }
 
   function handleAddToBag() {
     if (!canBuy) return;
 
-    console.log("ADD TO BAG", {
-      productId,
-      variantId,
-      price,
-      quantity,
-    });
+    const finalVariantId =
+      variantId ?? product.id;
+
+    addItem(
+      product,
+      product.id,
+      finalVariantId,
+      variant || "Default",
+      quantity
+    );
+
+    setAdding(true);
+
+    window.setTimeout(() => {
+      setAdding(false);
+    }, 700);
   }
 
   function handleBuyNow() {
     if (!canBuy) return;
 
-    console.log("BUY NOW", {
-      productId,
-      variantId,
-      price,
+    const finalVariantId =
+      variantId ?? product.id;
+
+    const buyNowItem = {
+      product,
+      productId: product.id,
+      variantId: finalVariantId,
+      variant: variant || "Default",
       quantity,
-    });
+      price,
+    };
+
+    sessionStorage.setItem(
+      "looms-buy-now",
+      JSON.stringify(buyNowItem)
+    );
+
+    window.location.href =
+      "/checkout?mode=buy-now";
   }
 
   return (
     <div>
+      {/* QUANTITY */}
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={decrease}
           disabled={!canBuy || quantity <= 1}
-          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
           aria-label="Decrease quantity"
+          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
         >
           −
         </button>
@@ -74,22 +106,28 @@ export function ProductPurchase({
           type="button"
           onClick={increase}
           disabled={!canBuy || quantity >= maxQuantity}
-          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
           aria-label="Increase quantity"
+          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
         >
           +
         </button>
       </div>
 
+      {/* ADD TO BAG */}
       <button
         type="button"
         onClick={handleAddToBag}
-        disabled={!canBuy}
+        disabled={!canBuy || adding}
         className="mt-4 w-full bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.16em] text-looms-cream transition hover:bg-looms-teal/90 disabled:cursor-not-allowed disabled:bg-gray-300"
       >
-        {canBuy ? "ADD TO BAG" : "SOLD OUT"}
+        {!canBuy
+          ? "SOLD OUT"
+          : adding
+            ? "ADDED TO BAG"
+            : "ADD TO BAG"}
       </button>
 
+      {/* BUY NOW */}
       <button
         type="button"
         onClick={handleBuyNow}
