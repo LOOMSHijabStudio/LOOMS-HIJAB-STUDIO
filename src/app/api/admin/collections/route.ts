@@ -29,12 +29,14 @@ export async function GET(
   void _request;
 
   try {
+    // Check admin authentication
     const verification = await verifyAdminRequest();
 
     if (!verification.success) {
       return verification.response as NextResponse<CollectionListResponse>;
     }
 
+    // Check admin / owner role
     const isAdmin = await userHasRole("ADMIN");
     const isOwner = await userHasRole("OWNER");
 
@@ -50,7 +52,11 @@ export async function GET(
 
     const client = createSupabaseServiceClient();
 
-    const { data: collections, error } = await client
+    // Get collections first.
+    // We intentionally do NOT use collection_products(count)
+    // here so the endpoint does not depend on Supabase relationship
+    // detection.
+    const { data: collections, error: collectionsError } = await client
       .from("collections")
       .select(
         `
@@ -60,14 +66,13 @@ export async function GET(
         description,
         cover_image_path,
         banner_image_path,
-        position,
-        collection_products(count)
+        position
         `
       )
       .order("position", { ascending: true });
 
-    if (error) {
-      console.error("Collections list error:", error);
+    if (collectionsError) {
+      console.error("Collections list error:", collectionsError);
 
       return NextResponse.json(
         {
@@ -78,20 +83,40 @@ export async function GET(
       );
     }
 
+    // Get product count for every collection.
+    const collectionsWithCount = await Promise.all(
+      (collections ?? []).map(async (collection) => {
+        const { count, error: countError } = await client
+          .from("collection_products")
+          .select("product_id", {
+            count: "exact",
+            head: true,
+          })
+          .eq("collection_id", collection.id);
+
+        if (countError) {
+          console.error(
+            `Collection product count error for ${collection.id}:`,
+            countError
+          );
+        }
+
+        return {
+          id: String(collection.id),
+          name: String(collection.name),
+          slug: String(collection.slug),
+          description: collection.description as string | null,
+          cover_image_path: collection.cover_image_path as string | null,
+          banner_image_path: collection.banner_image_path as string | null,
+          position: Number(collection.position),
+          product_count: count ?? 0,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      collections: (collections || []).map((col) => ({
-        id: String(col.id),
-        name: String(col.name),
-        slug: String(col.slug),
-        description: col.description as string | null,
-        cover_image_path: col.cover_image_path as string | null,
-        banner_image_path: col.banner_image_path as string | null,
-        position: Number(col.position),
-        product_count: Array.isArray(col.collection_products)
-          ? col.collection_products.length
-          : 0,
-      })),
+      collections: collectionsWithCount,
     });
   } catch (error) {
     console.error("Collections endpoint error:", error);
@@ -116,12 +141,14 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<CreateCollectionResponse>> {
   try {
+    // Check admin authentication
     const verification = await verifyAdminRequest();
 
     if (!verification.success) {
       return verification.response as NextResponse<CreateCollectionResponse>;
     }
 
+    // Check admin / owner role
     const isAdmin = await userHasRole("ADMIN");
     const isOwner = await userHasRole("OWNER");
 
@@ -137,6 +164,7 @@ export async function POST(
 
     const body = await request.json();
 
+    // Validate request body
     const validation = collectionSchema.safeParse(body);
 
     if (!validation.success) {
@@ -153,12 +181,24 @@ export async function POST(
 
     const client = createSupabaseServiceClient();
 
-    // Check for duplicate slug
-    const { data: existing } = await client
+    // Check duplicate slug
+    const { data: existing, error: existingError } = await client
       .from("collections")
       .select("id")
       .eq("slug", data.slug)
-      .single();
+      .maybeSingle();
+
+    if (existingError) {
+      console.error("Collection slug check error:", existingError);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to check collection slug",
+        },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
       return NextResponse.json(
@@ -170,15 +210,27 @@ export async function POST(
       );
     }
 
-    // Get max position
-    const { data: maxPosition } = await client
+    // Get the current highest position
+    const { data: maxPosition, error: positionError } = await client
       .from("collections")
       .select("position")
       .order("position", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const position = (maxPosition?.position || 0) + 1;
+    if (positionError) {
+      console.error("Collection position error:", positionError);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to determine collection position",
+        },
+        { status: 500 }
+      );
+    }
+
+    const position = Number(maxPosition?.position ?? 0) + 1;
 
     // Create collection
     const { data: newCollection, error: insertError } = await client
@@ -206,7 +258,7 @@ export async function POST(
       );
     }
 
-    // Log audit event
+    // Audit log
     await logAuditEvent({
       action: "admin.collection_created",
       entityType: "collection",
