@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import type { DemoProduct } from "@/features/catalog/demo-data";
 import { ProductPurchase } from "@/components/catalog/product-purchase";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
@@ -43,67 +44,78 @@ type Product = {
   product_variants: ProductVariant[];
 };
 
-async function getProduct(slug: string): Promise<Product | null> {
+async function getProduct(
+  slug: string
+): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    console.error("Supabase belum dikonfigurasi.");
+    console.error(
+      "Supabase belum dikonfigurasi."
+    );
+
     return null;
   }
 
   try {
-    const client = createSupabaseServiceClient();
+    const client =
+      createSupabaseServiceClient();
 
-    const decodedSlug = decodeURIComponent(slug).trim();
+    const decodedSlug =
+      decodeURIComponent(slug).trim();
 
     const possibleSlugs = [
       decodedSlug,
       slug,
       decodedSlug.toLowerCase(),
-      decodedSlug.toLowerCase().replace(/\s+/g, "-"),
+      decodedSlug
+        .toLowerCase()
+        .replace(/\s+/g, "-"),
     ].filter(Boolean);
 
     for (const currentSlug of possibleSlugs) {
-      const { data, error } = await client
-        .from("products")
-        .select(
-          `
-          id,
-          name,
-          slug,
-          sku,
-          description,
-          material,
-          care_instructions,
-          price,
-          sale_price,
-          stock,
-          status,
-          is_new_arrival,
-          is_best_seller,
-          product_images (
-            storage_path,
-            is_primary,
-            position
-          ),
-          product_variants (
+      const { data, error } =
+        await client
+          .from("products")
+          .select(
+            `
             id,
             name,
+            slug,
             sku,
-            image_path,
+            description,
+            material,
+            care_instructions,
             price,
+            sale_price,
             stock,
-            is_active
+            status,
+            is_new_arrival,
+            is_best_seller,
+            product_images (
+              storage_path,
+              is_primary,
+              position
+            ),
+            product_variants (
+              id,
+              name,
+              sku,
+              image_path,
+              price,
+              stock,
+              is_active
+            )
+          `
           )
-        `
-        )
-        .eq("slug", currentSlug)
-        .eq("status", "ACTIVE")
-        .maybeSingle();
+          .eq("slug", currentSlug)
+          .eq("status", "ACTIVE")
+          .maybeSingle();
 
       if (error) {
         console.error(
-          `Gagal mengambil produk dengan slug "${currentSlug}":`,
+          `Gagal mengambil produk "${currentSlug}":`,
           error
         );
+
         continue;
       }
 
@@ -111,34 +123,50 @@ async function getProduct(slug: string): Promise<Product | null> {
         return {
           ...(data as Product),
 
-          price: Number(data.price ?? 0),
+          price: Number(
+            data.price ?? 0
+          ),
 
           sale_price:
-            data.sale_price !== null && data.sale_price !== undefined
+            data.sale_price !== null &&
+            data.sale_price !== undefined
               ? Number(data.sale_price)
               : null,
 
-          stock: Number(data.stock ?? 0),
+          stock: Number(
+            data.stock ?? 0
+          ),
 
-          product_images: (data.product_images ?? []) as ProductImage[],
+          product_images:
+            (data.product_images ??
+              []) as ProductImage[],
 
-          product_variants: (
-            (data.product_variants ?? []) as ProductVariant[]
-          ).map((variant) => ({
-            ...variant,
-            price:
-              variant.price !== null && variant.price !== undefined
-                ? Number(variant.price)
-                : null,
-            stock: Number(variant.stock ?? 0),
-          })),
+          product_variants:
+            (
+              (data.product_variants ??
+                []) as ProductVariant[]
+            ).map((variant) => ({
+              ...variant,
+              price:
+                variant.price !== null &&
+                variant.price !== undefined
+                  ? Number(variant.price)
+                  : null,
+              stock: Number(
+                variant.stock ?? 0
+              ),
+            })),
         };
       }
     }
 
     return null;
   } catch (error) {
-    console.error("Product detail error:", error);
+    console.error(
+      "Product detail error:",
+      error
+    );
+
     return null;
   }
 }
@@ -150,7 +178,8 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
-  const product = await getProduct(slug);
+  const product =
+    await getProduct(slug);
 
   if (!product) {
     return {
@@ -166,17 +195,27 @@ export async function generateMetadata({
   };
 }
 
-function formatRupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatRupiah(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }
+  ).format(value);
 }
 
 function getImageUrl(
-  client: ReturnType<typeof createSupabaseServiceClient>,
-  storagePath: string | null | undefined
+  client: ReturnType<
+    typeof createSupabaseServiceClient
+  >,
+  storagePath:
+    | string
+    | null
+    | undefined
 ) {
   if (!storagePath) {
     return "/images/editorial-mocha.svg";
@@ -184,7 +223,8 @@ function getImageUrl(
 
   return client.storage
     .from("product-images")
-    .getPublicUrl(storagePath).data.publicUrl;
+    .getPublicUrl(storagePath)
+    .data.publicUrl;
 }
 
 export default async function ProductPage({
@@ -194,52 +234,135 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const product = await getProduct(slug);
+  const product =
+    await getProduct(slug);
 
   if (!product) {
     notFound();
   }
 
-  const client = createSupabaseServiceClient();
+  const client =
+    createSupabaseServiceClient();
 
-  const images = [...(product.product_images ?? [])].sort(
-    (a, b) => (a.position ?? 0) - (b.position ?? 0)
+  const images = [
+    ...(product.product_images ?? []),
+  ].sort(
+    (a, b) =>
+      (a.position ?? 0) -
+      (b.position ?? 0)
   );
 
   const primaryImage =
-    images.find((image) => image.is_primary) ?? images[0];
+    images.find(
+      (image) => image.is_primary
+    ) ?? images[0];
 
-  const mainImage = getImageUrl(
-    client,
-    primaryImage?.storage_path
-  );
+  const mainImage =
+    getImageUrl(
+      client,
+      primaryImage?.storage_path
+    );
 
-  const activeVariants = (product.product_variants ?? []).filter(
-    (variant) => variant.is_active
-  );
+  const activeVariants =
+    (
+      product.product_variants ??
+      []
+    ).filter(
+      (variant) => variant.is_active
+    );
 
-  const hasVariants = activeVariants.length > 0;
+  const hasVariants =
+    activeVariants.length > 0;
 
   const salePrice =
     product.sale_price !== null &&
-    product.sale_price < product.price
+    product.sale_price <
+      product.price
       ? product.sale_price
       : null;
 
-  const displayPrice = salePrice ?? product.price;
+  const displayPrice =
+    salePrice ?? product.price;
 
   const isInStock = hasVariants
-    ? activeVariants.some((variant) => variant.stock > 0)
+    ? activeVariants.some(
+        (variant) =>
+          variant.stock > 0
+      )
     : product.stock > 0;
 
   const maxQuantity = hasVariants
     ? Math.max(
         0,
-        ...activeVariants.map((variant) =>
-          Number(variant.stock ?? 0)
+        ...activeVariants.map(
+          (variant) =>
+            Number(
+              variant.stock ?? 0
+            )
         )
       )
-    : Number(product.stock ?? 0);
+    : Number(
+        product.stock ?? 0
+      );
+
+  /*
+   * DATA UNTUK CART
+   */
+  const cartProduct: DemoProduct = {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    category:
+      "The LOOMS Collection",
+    price: product.price,
+    ...(salePrice !== null
+      ? { salePrice }
+      : {}),
+    image: mainImage,
+    imageAlt: product.name,
+    description:
+      product.description ||
+      "A considered LOOMS piece designed for everyday wear.",
+    material:
+      product.material ||
+      "Premium Satin Voile",
+    care:
+      product.care_instructions ||
+      "Hand wash cold. Dry flat away from direct sunlight.",
+    stock: product.stock,
+    isNew:
+      product.is_new_arrival,
+    isBestSeller:
+      product.is_best_seller,
+    variants:
+      activeVariants.map(
+        (variant) =>
+          variant.name
+      ),
+    variantIds:
+      Object.fromEntries(
+        activeVariants.map(
+          (variant) => [
+            variant.name,
+            variant.id,
+          ]
+        )
+      ),
+  };
+
+  /*
+   * VARIANT DEFAULT
+   *
+   * Untuk sementara sistem memilih
+   * variant pertama yang masih punya stok.
+   */
+  const selectedVariant =
+    hasVariants
+      ? activeVariants.find(
+          (variant) =>
+            variant.stock > 0
+        )
+      : null;
 
   return (
     <main className="mx-auto max-w-[1440px] px-5 py-10 lg:px-10 lg:py-16">
@@ -254,9 +377,7 @@ export default async function ProductPage({
       </div>
 
       <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        {/* =========================
-            PRODUCT IMAGE
-        ========================== */}
+        {/* IMAGE */}
         <div className="relative overflow-hidden bg-[#f2eee9]">
           <div className="relative aspect-[4/5] w-full">
             <Image
@@ -270,9 +391,7 @@ export default async function ProductPage({
           </div>
         </div>
 
-        {/* =========================
-            PRODUCT INFORMATION
-        ========================== */}
+        {/* PRODUCT INFO */}
         <div className="flex flex-col justify-center">
           {/* LABEL */}
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-looms-gray">
@@ -293,16 +412,22 @@ export default async function ProductPage({
             {salePrice !== null ? (
               <>
                 <span className="text-lg font-medium text-looms-teal">
-                  {formatRupiah(salePrice)}
+                  {formatRupiah(
+                    salePrice
+                  )}
                 </span>
 
                 <span className="text-sm text-looms-gray line-through">
-                  {formatRupiah(product.price)}
+                  {formatRupiah(
+                    product.price
+                  )}
                 </span>
               </>
             ) : (
               <span className="text-lg font-medium text-looms-teal">
-                {formatRupiah(product.price)}
+                {formatRupiah(
+                  product.price
+                )}
               </span>
             )}
           </div>
@@ -315,9 +440,7 @@ export default async function ProductPage({
             </p>
           </div>
 
-          {/* =========================
-              VARIANTS / COLOUR
-          ========================== */}
+          {/* VARIANT */}
           {hasVariants && (
             <div className="mt-8">
               <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
@@ -325,47 +448,66 @@ export default async function ProductPage({
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {activeVariants.map((variant) => {
-                  const variantPrice =
-                    variant.price !== null
-                      ? variant.price
-                      : displayPrice;
+                {activeVariants.map(
+                  (variant) => {
+                    const variantPrice =
+                      variant.price !==
+                      null
+                        ? variant.price
+                        : displayPrice;
 
-                  return (
-                    <div
-                      key={variant.id}
-                      title={
-                        variant.stock > 0
-                          ? `Stock ${variant.stock}`
-                          : "Sold out"
-                      }
-                      className={`border px-4 py-3 text-xs ${
-                        variant.stock > 0
-                          ? "border-looms-teal text-looms-teal"
-                          : "border-gray-200 text-gray-400 line-through"
-                      }`}
-                    >
-                      <div>{variant.name}</div>
+                    const isSelected =
+                      selectedVariant?.id ===
+                      variant.id;
 
-                      {variantPrice !== displayPrice && (
-                        <div className="mt-1 text-[10px] opacity-70">
-                          {formatRupiah(variantPrice)}
+                    return (
+                      <div
+                        key={
+                          variant.id
+                        }
+                        title={
+                          variant.stock >
+                          0
+                            ? `Stock ${variant.stock}`
+                            : "Sold out"
+                        }
+                        className={`border px-4 py-3 text-xs ${
+                          variant.stock >
+                          0
+                            ? isSelected
+                              ? "border-looms-teal bg-looms-teal text-looms-cream"
+                              : "border-looms-teal text-looms-teal"
+                            : "border-gray-200 text-gray-400 line-through"
+                        }`}
+                      >
+                        <div>
+                          {
+                            variant.name
+                          }
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {variantPrice !==
+                          displayPrice && (
+                          <div className="mt-1 text-[10px] opacity-70">
+                            {formatRupiah(
+                              variantPrice
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                )}
               </div>
             </div>
           )}
 
-          {/* =========================
-              STOCK
-          ========================== */}
+          {/* STOCK */}
           <div className="mt-7">
             {isInStock ? (
               <p className="text-xs font-medium text-green-700">
-                In stock · {maxQuantity} pcs
+                In stock ·{" "}
+                {maxQuantity} pcs
               </p>
             ) : (
               <p className="text-xs font-medium text-red-600">
@@ -374,28 +516,34 @@ export default async function ProductPage({
             )}
           </div>
 
-          {/* =========================
-              PURCHASE
-          ========================== */}
+          {/* PURCHASE */}
           <div className="mt-7 max-w-md">
             <ProductPurchase
-              productId={product.id}
-              variantId={
-                hasVariants
-                  ? activeVariants.find(
-                      (variant) => variant.stock > 0
-                    )?.id ?? null
-                  : null
+              product={
+                cartProduct
               }
-              price={displayPrice}
-              maxQuantity={maxQuantity}
-              disabled={!isInStock}
+              variantId={
+                selectedVariant?.id ??
+                null
+              }
+              variant={
+                selectedVariant?.name ??
+                "Default"
+              }
+              price={
+                selectedVariant?.price ??
+                displayPrice
+              }
+              maxQuantity={
+                maxQuantity
+              }
+              disabled={
+                !isInStock
+              }
             />
           </div>
 
-          {/* =========================
-              DETAILS
-          ========================== */}
+          {/* DETAILS */}
           <div className="mt-10 border-t border-gray-200 pt-7">
             <div className="grid gap-5 text-sm">
               {/* MATERIAL */}
