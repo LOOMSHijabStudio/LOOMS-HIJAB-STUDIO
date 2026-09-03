@@ -4,7 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import type { DemoProduct } from "@/features/catalog/demo-data";
-import { ProductPurchase } from "@/components/catalog/product-purchase";
+import { ProductDetailPurchase } from "@/components/catalog/product-detail-purchase";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 
@@ -48,19 +48,14 @@ async function getProduct(
   slug: string
 ): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    console.error(
-      "Supabase belum dikonfigurasi."
-    );
-
+    console.error("Supabase belum dikonfigurasi.");
     return null;
   }
 
   try {
-    const client =
-      createSupabaseServiceClient();
+    const client = createSupabaseServiceClient();
 
-    const decodedSlug =
-      decodeURIComponent(slug).trim();
+    const decodedSlug = decodeURIComponent(slug).trim();
 
     const possibleSlugs = [
       decodedSlug,
@@ -72,11 +67,10 @@ async function getProduct(
     ].filter(Boolean);
 
     for (const currentSlug of possibleSlugs) {
-      const { data, error } =
-        await client
-          .from("products")
-          .select(
-            `
+      const { data, error } = await client
+        .from("products")
+        .select(
+          `
             id,
             name,
             slug,
@@ -105,10 +99,10 @@ async function getProduct(
               is_active
             )
           `
-          )
-          .eq("slug", currentSlug)
-          .eq("status", "ACTIVE")
-          .maybeSingle();
+        )
+        .eq("slug", currentSlug)
+        .eq("status", "ACTIVE")
+        .maybeSingle();
 
       if (error) {
         console.error(
@@ -123,9 +117,7 @@ async function getProduct(
         return {
           ...(data as Product),
 
-          price: Number(
-            data.price ?? 0
-          ),
+          price: Number(data.price ?? 0),
 
           sale_price:
             data.sale_price !== null &&
@@ -133,29 +125,28 @@ async function getProduct(
               ? Number(data.sale_price)
               : null,
 
-          stock: Number(
-            data.stock ?? 0
-          ),
+          stock: Number(data.stock ?? 0),
 
           product_images:
             (data.product_images ??
               []) as ProductImage[],
 
-          product_variants:
-            (
-              (data.product_variants ??
-                []) as ProductVariant[]
-            ).map((variant) => ({
-              ...variant,
-              price:
-                variant.price !== null &&
-                variant.price !== undefined
-                  ? Number(variant.price)
-                  : null,
-              stock: Number(
-                variant.stock ?? 0
-              ),
-            })),
+          product_variants: (
+            (data.product_variants ??
+              []) as ProductVariant[]
+          ).map((variant) => ({
+            ...variant,
+
+            price:
+              variant.price !== null &&
+              variant.price !== undefined
+                ? Number(variant.price)
+                : null,
+
+            stock: Number(
+              variant.stock ?? 0
+            ),
+          })),
         };
       }
     }
@@ -178,8 +169,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
-  const product =
-    await getProduct(slug);
+  const product = await getProduct(slug);
 
   if (!product) {
     return {
@@ -195,17 +185,12 @@ export async function generateMetadata({
   };
 }
 
-function formatRupiah(
-  value: number
-) {
-  return new Intl.NumberFormat(
-    "id-ID",
-    {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }
-  ).format(value);
+function formatRupiah(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function getImageUrl(
@@ -234,15 +219,13 @@ export default async function ProductPage({
 }) {
   const { slug } = await params;
 
-  const product =
-    await getProduct(slug);
+  const product = await getProduct(slug);
 
   if (!product) {
     notFound();
   }
 
-  const client =
-    createSupabaseServiceClient();
+  const client = createSupabaseServiceClient();
 
   const images = [
     ...(product.product_images ?? []),
@@ -257,27 +240,23 @@ export default async function ProductPage({
       (image) => image.is_primary
     ) ?? images[0];
 
-  const mainImage =
-    getImageUrl(
-      client,
-      primaryImage?.storage_path
-    );
+  const mainImage = getImageUrl(
+    client,
+    primaryImage?.storage_path
+  );
 
-  const activeVariants =
-    (
-      product.product_variants ??
-      []
-    ).filter(
-      (variant) => variant.is_active
-    );
+  const activeVariants = (
+    product.product_variants ?? []
+  ).filter(
+    (variant) => variant.is_active
+  );
 
   const hasVariants =
     activeVariants.length > 0;
 
   const salePrice =
     product.sale_price !== null &&
-    product.sale_price <
-      product.price
+    product.sale_price < product.price
       ? product.sale_price
       : null;
 
@@ -286,24 +265,16 @@ export default async function ProductPage({
 
   const isInStock = hasVariants
     ? activeVariants.some(
-        (variant) =>
-          variant.stock > 0
+        (variant) => variant.stock > 0
       )
     : product.stock > 0;
 
-  const maxQuantity = hasVariants
-    ? Math.max(
-        0,
-        ...activeVariants.map(
-          (variant) =>
-            Number(
-              variant.stock ?? 0
-            )
-        )
-      )
-    : Number(
-        product.stock ?? 0
-      );
+  const defaultVariant =
+    hasVariants
+      ? activeVariants.find(
+          (variant) => variant.stock > 0
+        ) ?? activeVariants[0]
+      : null;
 
   /*
    * DATA UNTUK CART
@@ -312,33 +283,45 @@ export default async function ProductPage({
     id: product.id,
     slug: product.slug,
     name: product.name,
+
     category:
       "The LOOMS Collection",
+
     price: product.price,
+
     ...(salePrice !== null
       ? { salePrice }
       : {}),
+
     image: mainImage,
+
     imageAlt: product.name,
+
     description:
       product.description ||
       "A considered LOOMS piece designed for everyday wear.",
+
     material:
       product.material ||
       "Premium Satin Voile",
+
     care:
       product.care_instructions ||
       "Hand wash cold. Dry flat away from direct sunlight.",
+
     stock: product.stock,
+
     isNew:
       product.is_new_arrival,
+
     isBestSeller:
       product.is_best_seller,
+
     variants:
       activeVariants.map(
-        (variant) =>
-          variant.name
+        (variant) => variant.name
       ),
+
     variantIds:
       Object.fromEntries(
         activeVariants.map(
@@ -349,20 +332,6 @@ export default async function ProductPage({
         )
       ),
   };
-
-  /*
-   * VARIANT DEFAULT
-   *
-   * Untuk sementara sistem memilih
-   * variant pertama yang masih punya stok.
-   */
-  const selectedVariant =
-    hasVariants
-      ? activeVariants.find(
-          (variant) =>
-            variant.stock > 0
-        )
-      : null;
 
   return (
     <main className="mx-auto max-w-[1440px] px-5 py-10 lg:px-10 lg:py-16">
@@ -407,30 +376,32 @@ export default async function ProductPage({
             {product.name}
           </h1>
 
-          {/* PRICE */}
-          <div className="mt-6 flex items-center gap-3">
-            {salePrice !== null ? (
-              <>
-                <span className="text-lg font-medium text-looms-teal">
-                  {formatRupiah(
-                    salePrice
-                  )}
-                </span>
+          {/* BASE PRICE */}
+          {!hasVariants && (
+            <div className="mt-6 flex items-center gap-3">
+              {salePrice !== null ? (
+                <>
+                  <span className="text-lg font-medium text-looms-teal">
+                    {formatRupiah(
+                      salePrice
+                    )}
+                  </span>
 
-                <span className="text-sm text-looms-gray line-through">
+                  <span className="text-sm text-looms-gray line-through">
+                    {formatRupiah(
+                      product.price
+                    )}
+                  </span>
+                </>
+              ) : (
+                <span className="text-lg font-medium text-looms-teal">
                   {formatRupiah(
                     product.price
                   )}
                 </span>
-              </>
-            ) : (
-              <span className="text-lg font-medium text-looms-teal">
-                {formatRupiah(
-                  product.price
-                )}
-              </span>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* DESCRIPTION */}
           <div className="mt-8 max-w-xl">
@@ -440,108 +411,34 @@ export default async function ProductPage({
             </p>
           </div>
 
-          {/* VARIANT */}
-          {hasVariants && (
-            <div className="mt-8">
-              <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
-                COLOUR
-              </p>
-
-              <div className="mt-3 flex flex-wrap gap-2">
-                {activeVariants.map(
-                  (variant) => {
-                    const variantPrice =
-                      variant.price !==
-                      null
-                        ? variant.price
-                        : displayPrice;
-
-                    const isSelected =
-                      selectedVariant?.id ===
-                      variant.id;
-
-                    return (
-                      <div
-                        key={
-                          variant.id
-                        }
-                        title={
-                          variant.stock >
-                          0
-                            ? `Stock ${variant.stock}`
-                            : "Sold out"
-                        }
-                        className={`border px-4 py-3 text-xs ${
-                          variant.stock >
-                          0
-                            ? isSelected
-                              ? "border-looms-teal bg-looms-teal text-looms-cream"
-                              : "border-looms-teal text-looms-teal"
-                            : "border-gray-200 text-gray-400 line-through"
-                        }`}
-                      >
-                        <div>
-                          {
-                            variant.name
-                          }
-                        </div>
-
-                        {variantPrice !==
-                          displayPrice && (
-                          <div className="mt-1 text-[10px] opacity-70">
-                            {formatRupiah(
-                              variantPrice
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* STOCK */}
-          <div className="mt-7">
-            {isInStock ? (
-              <p className="text-xs font-medium text-green-700">
-                In stock ·{" "}
-                {maxQuantity} pcs
-              </p>
-            ) : (
-              <p className="text-xs font-medium text-red-600">
-                Sold out
-              </p>
-            )}
-          </div>
-
-          {/* PURCHASE */}
-          <div className="mt-7 max-w-md">
-            <ProductPurchase
-              product={
-                cartProduct
-              }
-              variantId={
-                selectedVariant?.id ??
+          {/* PURCHASE + VARIANT */}
+          <div className="mt-8 max-w-md">
+            <ProductDetailPurchase
+              product={cartProduct}
+              variants={activeVariants}
+              defaultVariantId={
+                defaultVariant?.id ??
                 null
               }
-              variant={
-                selectedVariant?.name ??
-                "Default"
-              }
-              price={
-                selectedVariant?.price ??
-                displayPrice
-              }
-              maxQuantity={
-                maxQuantity
-              }
-              disabled={
-                !isInStock
-              }
+              basePrice={displayPrice}
             />
           </div>
+
+          {/* GENERAL STOCK MESSAGE */}
+          {!hasVariants && (
+            <div className="mt-7">
+              {isInStock ? (
+                <p className="text-xs font-medium text-green-700">
+                  In stock ·{" "}
+                  {product.stock} pcs
+                </p>
+              ) : (
+                <p className="text-xs font-medium text-red-600">
+                  Sold out
+                </p>
+              )}
+            </div>
+          )}
 
           {/* DETAILS */}
           <div className="mt-10 border-t border-gray-200 pt-7">
