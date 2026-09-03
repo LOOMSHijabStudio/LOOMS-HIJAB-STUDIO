@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { ProductCard } from "@/components/catalog/product-card";
-import type { DemoProduct } from "@/features/catalog/demo-data";
 import { useWishlist } from "@/components/wishlist/wishlist-provider";
+import type { DemoProduct } from "@/features/catalog/demo-data";
 
 export default function WishlistPage() {
   const { wishlist } = useWishlist();
@@ -16,10 +16,12 @@ export default function WishlistPage() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        const response = await fetch("/api/products");
+        const response = await fetch("/api/catalog/products");
 
         if (!response.ok) {
-          throw new Error("Failed to load products");
+          throw new Error(
+            "Failed to load catalog products",
+          );
         }
 
         const data = await response.json();
