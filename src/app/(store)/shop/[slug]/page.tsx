@@ -3,8 +3,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ProductPurchase } from "@/components/catalog/product-purchase";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
+
+export const dynamic = "force-dynamic";
 
 type ProductImage = {
   storage_path: string;
@@ -49,72 +52,91 @@ async function getProduct(slug: string): Promise<Product | null> {
   try {
     const client = createSupabaseServiceClient();
 
-    const { data, error } = await client
-      .from("products")
-      .select(
-        `
-        id,
-        name,
-        slug,
-        sku,
-        description,
-        material,
-        care_instructions,
-        price,
-        sale_price,
-        stock,
-        status,
-        is_new_arrival,
-        is_best_seller,
-        product_images (
-          storage_path,
-          is_primary,
-          position
-        ),
-        product_variants (
+    const decodedSlug = decodeURIComponent(slug).trim();
+
+    const possibleSlugs = [
+      decodedSlug,
+      slug,
+      decodedSlug.toLowerCase(),
+      decodedSlug.toLowerCase().replace(/\s+/g, "-"),
+    ].filter(Boolean);
+
+    for (const currentSlug of possibleSlugs) {
+      const { data, error } = await client
+        .from("products")
+        .select(
+          `
           id,
           name,
+          slug,
           sku,
-          image_path,
+          description,
+          material,
+          care_instructions,
           price,
+          sale_price,
           stock,
-          is_active
+          status,
+          is_new_arrival,
+          is_best_seller,
+          product_images (
+            storage_path,
+            is_primary,
+            position
+          ),
+          product_variants (
+            id,
+            name,
+            sku,
+            image_path,
+            price,
+            stock,
+            is_active
+          )
+        `
         )
-      `
-      )
-      .eq("slug", slug)
-      .eq("status", "ACTIVE")
-      .maybeSingle();
+        .eq("slug", currentSlug)
+        .eq("status", "ACTIVE")
+        .maybeSingle();
 
-    if (error) {
-      console.error("Gagal mengambil detail produk:", error);
-      return null;
-    }
+      if (error) {
+        console.error(
+          `Gagal mengambil produk dengan slug "${currentSlug}":`,
+          error
+        );
+        continue;
+      }
 
-    if (!data) {
-      return null;
-    }
+      if (data) {
+        return {
+          ...(data as Product),
 
-    return {
-      ...(data as Product),
-      price: Number(data.price ?? 0),
-      sale_price:
-        data.sale_price !== null && data.sale_price !== undefined
-          ? Number(data.sale_price)
-          : null,
-      stock: Number(data.stock ?? 0),
-      product_images: (data.product_images ?? []) as ProductImage[],
-      product_variants: ((data.product_variants ?? []) as ProductVariant[]).map(
-        (variant) => ({
-          ...variant,
-          price:
-            variant.price !== null && variant.price !== undefined
-              ? Number(variant.price)
+          price: Number(data.price ?? 0),
+
+          sale_price:
+            data.sale_price !== null && data.sale_price !== undefined
+              ? Number(data.sale_price)
               : null,
-          stock: Number(variant.stock ?? 0),
-        })
-      ),
-    };
+
+          stock: Number(data.stock ?? 0),
+
+          product_images: (data.product_images ?? []) as ProductImage[],
+
+          product_variants: (
+            (data.product_variants ?? []) as ProductVariant[]
+          ).map((variant) => ({
+            ...variant,
+            price:
+              variant.price !== null && variant.price !== undefined
+                ? Number(variant.price)
+                : null,
+            stock: Number(variant.stock ?? 0),
+          })),
+        };
+      }
+    }
+
+    return null;
   } catch (error) {
     console.error("Product detail error:", error);
     return null;
@@ -127,11 +149,12 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
+
   const product = await getProduct(slug);
 
   if (!product) {
     return {
-      title: "Product Not Found",
+      title: "Product Not Found | LOOMS",
     };
   }
 
@@ -197,17 +220,30 @@ export default async function ProductPage({
 
   const hasVariants = activeVariants.length > 0;
 
-  const startingPrice =
-    product.sale_price !== null
+  const salePrice =
+    product.sale_price !== null &&
+    product.sale_price < product.price
       ? product.sale_price
-      : product.price;
+      : null;
+
+  const displayPrice = salePrice ?? product.price;
 
   const isInStock = hasVariants
     ? activeVariants.some((variant) => variant.stock > 0)
     : product.stock > 0;
 
+  const maxQuantity = hasVariants
+    ? Math.max(
+        0,
+        ...activeVariants.map((variant) =>
+          Number(variant.stock ?? 0)
+        )
+      )
+    : Number(product.stock ?? 0);
+
   return (
     <main className="mx-auto max-w-[1440px] px-5 py-10 lg:px-10 lg:py-16">
+      {/* BACK */}
       <div className="mb-8">
         <Link
           href="/shop"
@@ -218,7 +254,9 @@ export default async function ProductPage({
       </div>
 
       <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        {/* PRODUCT IMAGE */}
+        {/* =========================
+            PRODUCT IMAGE
+        ========================== */}
         <div className="relative overflow-hidden bg-[#f2eee9]">
           <div className="relative aspect-[4/5] w-full">
             <Image
@@ -232,8 +270,11 @@ export default async function ProductPage({
           </div>
         </div>
 
-        {/* PRODUCT INFORMATION */}
+        {/* =========================
+            PRODUCT INFORMATION
+        ========================== */}
         <div className="flex flex-col justify-center">
+          {/* LABEL */}
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-looms-gray">
             {product.is_new_arrival
               ? "NEW ARRIVAL"
@@ -242,15 +283,17 @@ export default async function ProductPage({
                 : "THE LOOMS COLLECTION"}
           </p>
 
+          {/* NAME */}
           <h1 className="mt-4 font-display text-5xl leading-[0.95] text-looms-teal md:text-6xl">
             {product.name}
           </h1>
 
+          {/* PRICE */}
           <div className="mt-6 flex items-center gap-3">
-            {product.sale_price !== null ? (
+            {salePrice !== null ? (
               <>
                 <span className="text-lg font-medium text-looms-teal">
-                  {formatRupiah(product.sale_price)}
+                  {formatRupiah(salePrice)}
                 </span>
 
                 <span className="text-sm text-looms-gray line-through">
@@ -264,6 +307,7 @@ export default async function ProductPage({
             )}
           </div>
 
+          {/* DESCRIPTION */}
           <div className="mt-8 max-w-xl">
             <p className="text-sm leading-7 text-looms-gray">
               {product.description ||
@@ -271,35 +315,57 @@ export default async function ProductPage({
             </p>
           </div>
 
-          {/* VARIANTS */}
-          {hasVariants ? (
+          {/* =========================
+              VARIANTS / COLOUR
+          ========================== */}
+          {hasVariants && (
             <div className="mt-8">
               <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                 COLOUR
               </p>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {activeVariants.map((variant) => (
-                  <div
-                    key={variant.id}
-                    className={`border px-4 py-3 text-xs ${
-                      variant.stock > 0
-                        ? "border-looms-teal text-looms-teal"
-                        : "border-gray-200 text-gray-400 line-through"
-                    }`}
-                  >
-                    {variant.name}
-                  </div>
-                ))}
+                {activeVariants.map((variant) => {
+                  const variantPrice =
+                    variant.price !== null
+                      ? variant.price
+                      : displayPrice;
+
+                  return (
+                    <div
+                      key={variant.id}
+                      title={
+                        variant.stock > 0
+                          ? `Stock ${variant.stock}`
+                          : "Sold out"
+                      }
+                      className={`border px-4 py-3 text-xs ${
+                        variant.stock > 0
+                          ? "border-looms-teal text-looms-teal"
+                          : "border-gray-200 text-gray-400 line-through"
+                      }`}
+                    >
+                      <div>{variant.name}</div>
+
+                      {variantPrice !== displayPrice && (
+                        <div className="mt-1 text-[10px] opacity-70">
+                          {formatRupiah(variantPrice)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ) : null}
+          )}
 
-          {/* STOCK */}
+          {/* =========================
+              STOCK
+          ========================== */}
           <div className="mt-7">
             {isInStock ? (
               <p className="text-xs font-medium text-green-700">
-                In stock
+                In stock · {maxQuantity} pcs
               </p>
             ) : (
               <p className="text-xs font-medium text-red-600">
@@ -308,7 +374,9 @@ export default async function ProductPage({
             )}
           </div>
 
-          {/* PURCHASE AREA */}
+          {/* =========================
+              PURCHASE
+          ========================== */}
           <div className="mt-7 max-w-md">
             <ProductPurchase
               productId={product.id}
@@ -319,33 +387,30 @@ export default async function ProductPage({
                     )?.id ?? null
                   : null
               }
-              price={startingPrice}
-              maxQuantity={
-                hasVariants
-                  ? Math.max(
-                      ...activeVariants.map(
-                        (variant) => variant.stock
-                      )
-                    )
-                  : product.stock
-              }
+              price={displayPrice}
+              maxQuantity={maxQuantity}
               disabled={!isInStock}
             />
           </div>
 
-          {/* DETAILS */}
+          {/* =========================
+              DETAILS
+          ========================== */}
           <div className="mt-10 border-t border-gray-200 pt-7">
             <div className="grid gap-5 text-sm">
+              {/* MATERIAL */}
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   MATERIAL
                 </p>
 
                 <p className="mt-2 text-looms-teal">
-                  {product.material || "Premium Satin Voile"}
+                  {product.material ||
+                    "Premium Satin Voile"}
                 </p>
               </div>
 
+              {/* CARE */}
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   CARE
@@ -357,6 +422,7 @@ export default async function ProductPage({
                 </p>
               </div>
 
+              {/* PRODUCT CODE */}
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   PRODUCT CODE
@@ -372,106 +438,4 @@ export default async function ProductPage({
       </section>
     </main>
   );
-}
-
-/* =========================================================
-   PURCHASE COMPONENT
-   ========================================================= */
-
-import { use } from "react";
-
-function ProductPurchase({
-  productId,
-  variantId,
-  price,
-  maxQuantity,
-  disabled,
-}: {
-  productId: string;
-  variantId: string | null;
-  price: number;
-  maxQuantity: number;
-  disabled: boolean;
-}) {
-  void productId;
-  void variantId;
-  void price;
-
-  const quantity = useQuantity();
-
-  const canBuy = !disabled && maxQuantity > 0;
-
-  return (
-    <div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={quantity.decrease}
-          disabled={!canBuy || quantity.value <= 1}
-          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Decrease quantity"
-        >
-          −
-        </button>
-
-        <div className="flex h-12 min-w-16 items-center justify-center border border-gray-300 px-4 text-sm font-medium text-looms-teal">
-          {quantity.value}
-        </div>
-
-        <button
-          type="button"
-          onClick={() =>
-            quantity.increase(Math.max(1, maxQuantity))
-          }
-          disabled={
-            !canBuy || quantity.value >= maxQuantity
-          }
-          className="flex h-12 w-12 items-center justify-center border border-gray-300 text-xl text-looms-teal transition hover:border-looms-teal disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Increase quantity"
-        >
-          +
-        </button>
-      </div>
-
-      <button
-        type="button"
-        disabled={!canBuy}
-        className="mt-4 w-full bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.16em] text-looms-cream transition hover:bg-looms-teal/90 disabled:cursor-not-allowed disabled:bg-gray-300"
-      >
-        {canBuy ? "ADD TO BAG" : "SOLD OUT"}
-      </button>
-
-      <button
-        type="button"
-        disabled={!canBuy}
-        className="mt-3 w-full border border-looms-teal px-6 py-4 text-xs font-medium tracking-[0.16em] text-looms-teal transition hover:bg-looms-teal hover:text-looms-cream disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400"
-      >
-        BUY NOW
-      </button>
-    </div>
-  );
-}
-
-/* =========================================================
-   SIMPLE QUANTITY HOOK
-   ========================================================= */
-
-function useQuantity() {
-  const [value, setValue] = useState(1);
-
-  function decrease() {
-    setValue((current) => Math.max(1, current - 1));
-  }
-
-  function increase(max: number) {
-    setValue((current) =>
-      Math.min(max, current + 1)
-    );
-  }
-
-  return {
-    value,
-    decrease,
-    increase,
-  };
 }
