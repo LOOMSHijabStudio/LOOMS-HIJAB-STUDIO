@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+
 import { verifyAdminRequest } from "@/server/auth/api-utils";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { userHasRole } from "@/server/authorization/permissions";
@@ -29,6 +30,7 @@ export async function GET(
 
   try {
     const verification = await verifyAdminRequest();
+
     if (!verification.success) {
       return verification.response as NextResponse<CollectionListResponse>;
     }
@@ -38,7 +40,10 @@ export async function GET(
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: "Unauthorized",
+        },
         { status: 403 }
       );
     }
@@ -57,14 +62,18 @@ export async function GET(
         banner_image_path,
         position,
         collection_products(count)
-      `
+        `
       )
       .order("position", { ascending: true });
 
     if (error) {
       console.error("Collections list error:", error);
+
       return NextResponse.json(
-        { success: false, error: "Failed to fetch collections" },
+        {
+          success: false,
+          error: "Failed to fetch collections",
+        },
         { status: 500 }
       );
     }
@@ -79,13 +88,19 @@ export async function GET(
         cover_image_path: col.cover_image_path as string | null,
         banner_image_path: col.banner_image_path as string | null,
         position: Number(col.position),
-        product_count: Array.isArray(col.collection_products) ? col.collection_products.length : 0,
+        product_count: Array.isArray(col.collection_products)
+          ? col.collection_products.length
+          : 0,
       })),
     });
   } catch (error) {
     console.error("Collections endpoint error:", error);
+
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      {
+        success: false,
+        error: "Internal server error",
+      },
       { status: 500 }
     );
   }
@@ -102,6 +117,7 @@ export async function POST(
 ): Promise<NextResponse<CreateCollectionResponse>> {
   try {
     const verification = await verifyAdminRequest();
+
     if (!verification.success) {
       return verification.response as NextResponse<CreateCollectionResponse>;
     }
@@ -111,15 +127,18 @@ export async function POST(
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
+        {
+          success: false,
+          error: "Unauthorized",
+        },
         { status: 403 }
       );
     }
 
     const body = await request.json();
 
-    // Validate input
     const validation = collectionSchema.safeParse(body);
+
     if (!validation.success) {
       return NextResponse.json(
         {
@@ -131,6 +150,7 @@ export async function POST(
     }
 
     const data = validation.data;
+
     const client = createSupabaseServiceClient();
 
     // Check for duplicate slug
@@ -176,6 +196,7 @@ export async function POST(
 
     if (insertError || !newCollection) {
       console.error("Collection creation error:", insertError);
+
       return NextResponse.json(
         {
           success: false,
@@ -205,8 +226,12 @@ export async function POST(
     );
   } catch (error) {
     console.error("Create collection endpoint error:", error);
+
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      {
+        success: false,
+        error: "Internal server error",
+      },
       { status: 500 }
     );
   }
