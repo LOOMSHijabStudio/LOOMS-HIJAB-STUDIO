@@ -46,6 +46,7 @@ export const productUpdateSchema = productCreateSchema.partial();
 
 export const priceUpdateSchema = z.object({
   price: z.number().positive().optional(),
+
   sale_price: z.number().positive().optional().nullable(),
 });
 
@@ -81,13 +82,7 @@ export const categorySchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 
-/**
- * Collection validation schema
- *
- * cover_image_path dan banner_image_path dibuat
- * optional + nullable karena Admin saat ini
- * mengirimkan nilai null jika belum ada gambar.
- */
+// Collection validation schema
 export const collectionSchema = z.object({
   name: z.string().min(1).max(200),
 
@@ -99,8 +94,10 @@ export const collectionSchema = z.object({
 
   description: z.string().optional(),
 
+  // Bisa menerima string, undefined, atau null
   cover_image_path: z.string().optional().nullable(),
 
+  // Bisa menerima string, undefined, atau null
   banner_image_path: z.string().optional().nullable(),
 
   position: z.number().int().min(0).optional(),
@@ -125,20 +122,28 @@ export const ALLOWED_IMAGE_EXTENSIONS = [
 // Image dimension constraints
 export const MIN_IMAGE_WIDTH = 100;
 export const MIN_IMAGE_HEIGHT = 100;
+
 export const MAX_IMAGE_WIDTH = 8000;
 export const MAX_IMAGE_HEIGHT = 8000;
 
 // Types
-export type ProductCreateInput = z.infer<typeof productCreateSchema>;
+export type ProductCreateInput =
+  z.infer<typeof productCreateSchema>;
 
-export type ProductUpdateInput = z.infer<typeof productUpdateSchema>;
+export type ProductUpdateInput =
+  z.infer<typeof productUpdateSchema>;
 
-export type PriceUpdateInput = z.infer<typeof priceUpdateSchema>;
+export type PriceUpdateInput =
+  z.infer<typeof priceUpdateSchema>;
 
-export type StockUpdateInput = z.infer<typeof stockUpdateSchema>;
+export type StockUpdateInput =
+  z.infer<typeof stockUpdateSchema>;
 
-export type VariantInput = z.infer<typeof variantSchema>;
+export type VariantInput =
+  z.infer<typeof variantSchema>;
 
-export type CategoryInput = z.infer<typeof categorySchema>;
+export type CategoryInput =
+  z.infer<typeof categorySchema>;
 
-export type CollectionInput = z.infer<typeof collectionSchema>;
+export type CollectionInput =
+  z.infer<typeof collectionSchema>;
