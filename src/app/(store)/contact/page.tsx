@@ -55,9 +55,9 @@ export default function ContactPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#f5f1e8] text-[#151515]">
-        <section className="mx-auto max-w-6xl px-6 py-24">
-          <p className="text-sm tracking-[0.2em] uppercase">
+      <main className="min-h-screen bg-white text-black">
+        <section className="mx-auto max-w-6xl px-6 py-24 md:px-10">
+          <p className="text-sm uppercase tracking-[0.2em]">
             Loading...
           </p>
         </section>
@@ -66,10 +66,10 @@ export default function ContactPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f1e8] text-[#151515]">
+    <main className="min-h-screen bg-white text-black">
       <section className="mx-auto max-w-6xl px-6 py-20 md:px-10 md:py-28">
         <div className="max-w-3xl">
-          <p className="mb-6 text-xs font-medium uppercase tracking-[0.25em] text-[#777]">
+          <p className="mb-6 text-xs font-medium uppercase tracking-[0.25em] text-gray-500">
             Contact
           </p>
 
@@ -77,7 +77,7 @@ export default function ContactPage() {
             Let&apos;s talk.
           </h1>
 
-          <p className="mt-8 max-w-xl text-base leading-7 text-[#666]">
+          <p className="mt-8 max-w-xl text-base leading-7 text-gray-600">
             For inquiries, collaborations, appointments, or anything else,
             feel free to reach out to us.
           </p>
@@ -86,14 +86,14 @@ export default function ContactPage() {
         <div className="mt-20 grid gap-16 md:grid-cols-2">
           {/* CONTACT */}
           <div>
-            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-[#777]">
+            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
               Contact
             </h2>
 
             <div className="space-y-5 text-base">
               {content.contact_email && (
                 <div>
-                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-[#999]">
+                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-gray-400">
                     Email
                   </p>
 
@@ -108,7 +108,7 @@ export default function ContactPage() {
 
               {whatsappNumber && (
                 <div>
-                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-[#999]">
+                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-gray-400">
                     WhatsApp
                   </p>
 
@@ -127,14 +127,14 @@ export default function ContactPage() {
 
           {/* SOCIAL */}
           <div>
-            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-[#777]">
+            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
               Social
             </h2>
 
             <div className="space-y-5 text-base">
               {content.contact_instagram && (
                 <div>
-                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-[#999]">
+                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-gray-400">
                     Instagram
                   </p>
 
@@ -151,7 +151,7 @@ export default function ContactPage() {
 
               {content.contact_tiktok && (
                 <div>
-                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-[#999]">
+                  <p className="mb-1 text-xs uppercase tracking-[0.15em] text-gray-400">
                     TikTok
                   </p>
 
@@ -170,14 +170,14 @@ export default function ContactPage() {
 
           {/* STUDIO */}
           <div>
-            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-[#777]">
+            <h2 className="mb-6 text-xs font-medium uppercase tracking-[0.2em] text-gray-500">
               Studio
             </h2>
 
             <p className="text-base leading-7">
               {content.contact_studio}
               <br />
-              By appointment only
+              8:00 AM - 6:00 PM
             </p>
           </div>
         </div>
