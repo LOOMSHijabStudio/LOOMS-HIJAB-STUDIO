@@ -113,6 +113,7 @@ export async function GET(request: NextRequest) {
         `
         id,
         name,
+        slug,
         sku,
         price,
         sale_price,
@@ -180,6 +181,7 @@ export async function GET(request: NextRequest) {
         return {
           id: product.id,
           name: product.name,
+          slug: product.slug,
           sku: product.sku,
           price: Number(product.price),
           sale_price:
