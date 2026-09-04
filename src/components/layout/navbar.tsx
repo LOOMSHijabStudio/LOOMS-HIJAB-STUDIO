@@ -10,9 +10,9 @@ import { Icon } from "@/components/ui/icons";
 const links = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
-  { href: "/shop?edit=new", label: "New Arrivals" },
-  { href: "/shop?collection=essential", label: "Collections" },
-  { href: "/shop?edit=best", label: "Best Sellers" },
+  { href: "/new-arrivals", label: "New Arrivals" },
+  { href: "/collection", label: "Collection" },
+  { href: "/best-sellers", label: "Best Sellers" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
@@ -100,10 +100,7 @@ export function Navbar() {
                   ♥
                 </span>
               ) : (
-                <Icon
-                  name="heart"
-                  className="h-5 w-5"
-                />
+                <Icon name="heart" className="h-5 w-5" />
               )}
 
               {wishlist.length > 0 && (
