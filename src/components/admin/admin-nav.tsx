@@ -3,31 +3,25 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-interface AdminNavProps {
-  roles: string[];
-}
+type AdminRole = "OWNER" | "ADMIN" | "EDITOR";
 
-interface NavItem {
+type NavItem = {
   href: string;
   label: string;
-  roles: string[];
-  exact?: boolean;
-}
+  roles: AdminRole[];
+};
 
 const navItems: NavItem[] = [
   {
     href: "/admin",
     label: "Dashboard",
     roles: ["OWNER", "ADMIN", "EDITOR"],
-    exact: true,
   },
   {
     href: "/admin/products",
     label: "Produk",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
-
-  // ===== BAGIAN TOKO =====
   {
     href: "/admin/home",
     label: "Home",
@@ -53,22 +47,15 @@ const navItems: NavItem[] = [
     label: "Best Sellers",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
-
-  // ===== ADMIN =====
   {
     href: "/admin/orders",
     label: "Pesanan",
-    roles: ["OWNER", "ADMIN"],
+    roles: ["OWNER", "ADMIN", "EDITOR"],
   },
   {
     href: "/admin/categories",
     label: "Kategori",
-    roles: ["OWNER", "ADMIN"],
-  },
-  {
-    href: "/admin/collections",
-    label: "Koleksi",
-    roles: ["OWNER", "ADMIN"],
+    roles: ["OWNER", "ADMIN", "EDITOR"],
   },
   {
     href: "/admin/appearance",
@@ -78,7 +65,7 @@ const navItems: NavItem[] = [
   {
     href: "/admin/users",
     label: "Admin Users",
-    roles: ["OWNER"],
+    roles: ["OWNER", "ADMIN"],
   },
   {
     href: "/admin/audit-logs",
@@ -87,29 +74,30 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AdminNav({ roles }: AdminNavProps) {
+export function AdminNav({ role }: { role: AdminRole }) {
   const pathname = usePathname();
 
-  const filteredItems = navItems.filter((item) =>
-    item.roles.some((role) => roles.includes(role))
+  const visibleItems = navItems.filter((item) =>
+    item.roles.includes(role)
   );
 
   return (
-    <nav className="mt-6 space-y-1 px-3">
-      {filteredItems.map((item) => {
-        const isActive = item.exact
-          ? pathname === item.href
-          : pathname === item.href ||
-            pathname.startsWith(`${item.href}/`);
+    <nav className="space-y-1">
+      {visibleItems.map((item) => {
+        const isActive =
+          item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname === item.href ||
+              pathname.startsWith(`${item.href}/`);
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            className={`block rounded-lg px-4 py-3 text-sm font-medium transition ${
               isActive
-                ? "bg-looms-cream text-looms-teal shadow-sm font-semibold"
-                : "text-looms-cream/80 hover:text-looms-cream hover:bg-looms-teal/70"
+                ? "bg-looms-teal text-white"
+                : "text-gray-700 hover:bg-gray-100 hover:text-looms-teal"
             }`}
           >
             {item.label}
