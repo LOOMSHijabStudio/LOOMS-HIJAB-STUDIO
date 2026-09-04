@@ -26,6 +26,35 @@ const navItems: NavItem[] = [
     label: "Produk",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
+
+  // ===== BAGIAN TOKO =====
+  {
+    href: "/admin/home",
+    label: "Home",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+  {
+    href: "/admin/shop",
+    label: "Shop",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+  {
+    href: "/admin/new-arrivals",
+    label: "New Arrivals",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+  {
+    href: "/admin/collection",
+    label: "Collection",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+  {
+    href: "/admin/best-sellers",
+    label: "Best Sellers",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+
+  // ===== ADMIN =====
   {
     href: "/admin/orders",
     label: "Pesanan",
@@ -70,7 +99,8 @@ export function AdminNav({ roles }: AdminNavProps) {
       {filteredItems.map((item) => {
         const isActive = item.exact
           ? pathname === item.href
-          : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          : pathname === item.href ||
+            pathname.startsWith(`${item.href}/`);
 
         return (
           <Link
