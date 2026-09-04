@@ -30,6 +30,12 @@ type SupabaseCategory = {
   slug: string;
 };
 
+type SupabasePlacement = {
+  product_id: string;
+  placement: string;
+  position: number | null;
+};
+
 type SupabaseProduct = {
   id: string;
   name: string;
@@ -73,7 +79,9 @@ type HomeProduct = {
   variantIds: Record<string, string>;
 };
 
-function getPublicImageUrl(storagePath: string | null | undefined) {
+function getPublicImageUrl(
+  storagePath: string | null | undefined
+) {
   if (!storagePath) {
     return "/images/editorial-mocha.svg";
   }
@@ -86,7 +94,8 @@ function getPublicImageUrl(storagePath: string | null | undefined) {
     return storagePath;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   if (!supabaseUrl) {
     return "/images/editorial-mocha.svg";
@@ -100,7 +109,7 @@ function getCategoryName(
     | SupabaseCategory
     | SupabaseCategory[]
     | null
-    | undefined,
+    | undefined
 ) {
   if (Array.isArray(category)) {
     return category[0]?.name ?? "LOOMS";
@@ -116,7 +125,13 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
 
   const client = createSupabaseServiceClient();
 
-  const { data, error } = await client
+  /*
+   * Ambil produk ACTIVE
+   */
+  const {
+    data: productsData,
+    error: productsError,
+  } = await client
     .from("products")
     .select(
       `
@@ -150,31 +165,103 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
           stock,
           is_active
         )
-      `,
+      `
     )
     .eq("status", "ACTIVE")
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("Failed to load Home products:", error);
+  if (productsError) {
+    console.error(
+      "Failed to load Home products:",
+      productsError
+    );
+
     return [];
   }
 
-  const products = (data ?? []) as SupabaseProduct[];
+  /*
+   * Ambil placement produk
+   */
+  const {
+    data: placementsData,
+    error: placementsError,
+  } = await client
+    .from("product_placements")
+    .select(
+      `
+        product_id,
+        placement,
+        position
+      `
+    )
+    .order("position", { ascending: true });
+
+  if (placementsError) {
+    console.error(
+      "Failed to load product placements:",
+      placementsError
+    );
+
+    return [];
+  }
+
+  const products = (productsData ??
+    []) as SupabaseProduct[];
+
+  const placements = (placementsData ??
+    []) as SupabasePlacement[];
+
+  /*
+   * Buat map:
+   *
+   * product ID
+   *      ↓
+   * placement yang dimiliki
+   *
+   * Contoh:
+   *
+   * produk A → HOME, SHOP
+   * produk B → SHOP, NEW_ARRIVALS
+   */
+  const placementMap = new Map<
+    string,
+    Set<string>
+  >();
+
+  for (const placement of placements) {
+    if (!placementMap.has(placement.product_id)) {
+      placementMap.set(
+        placement.product_id,
+        new Set<string>()
+      );
+    }
+
+    placementMap
+      .get(placement.product_id)!
+      .add(placement.placement);
+  }
 
   return products.map((product) => {
-    const images = Array.isArray(product.product_images)
+    const images = Array.isArray(
+      product.product_images
+    )
       ? [...product.product_images].sort((a, b) => {
           if (a.is_primary && !b.is_primary) return -1;
           if (!a.is_primary && b.is_primary) return 1;
 
-          return (a.position ?? 0) - (b.position ?? 0);
+          return (
+            (a.position ?? 0) -
+            (b.position ?? 0)
+          );
         })
       : [];
 
-    const activeVariants = Array.isArray(product.product_variants)
+    const activeVariants = Array.isArray(
+      product.product_variants
+    )
       ? product.product_variants.filter(
-          (variant) => variant.is_active !== false,
+          (variant) =>
+            variant.is_active !== false
         )
       : [];
 
@@ -184,77 +271,124 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       variantIds[variant.name] = variant.id;
     }
 
+    const productPlacements =
+      placementMap.get(product.id) ??
+      new Set<string>();
+
     return {
       id: product.id,
       slug: product.slug,
       name: product.name,
-      category: getCategoryName(product.categories),
+      category: getCategoryName(
+        product.categories
+      ),
       price: Number(product.price ?? 0),
       salePrice:
         product.sale_price !== null
           ? Number(product.sale_price)
           : undefined,
-      image: getPublicImageUrl(images[0]?.storage_path),
+      image: getPublicImageUrl(
+        images[0]?.storage_path
+      ),
       imageAlt: product.name,
       description: product.description ?? "",
-      material: product.material ?? "Premium Satin Voile",
+      material:
+        product.material ??
+        "Premium Satin Voile",
       care: "Hand wash cold.",
       stock: Number(product.stock ?? 0),
-      isNew: Boolean(product.is_new_arrival),
-      isBestSeller: Boolean(product.is_best_seller),
-      isFeatured: Boolean(product.is_featured),
-      variants: activeVariants.map((variant) => variant.name),
+
+      /*
+       * Sekarang status section membaca
+       * product_placements.
+       */
+      isNew:
+        productPlacements.has(
+          "NEW_ARRIVALS"
+        ),
+
+      isBestSeller:
+        productPlacements.has(
+          "BEST_SELLERS"
+        ),
+
+      isFeatured:
+        productPlacements.has("HOME"),
+
+      variants: activeVariants.map(
+        (variant) => variant.name
+      ),
+
       variantIds,
     };
   });
 }
 
-function EmptySection({ text }: { text: string }) {
+function EmptySection({
+  text,
+}: {
+  text: string;
+}) {
   return (
     <div className="py-10 text-center">
-      <p className="text-sm text-looms-gray">{text}</p>
+      <p className="text-sm text-looms-gray">
+        {text}
+      </p>
     </div>
   );
 }
 
 export default async function HomePage() {
-  const appearance = getWebsiteAppearance();
-  const products = await getHomeProducts();
+  const appearance =
+    getWebsiteAppearance();
+
+  const products =
+    await getHomeProducts();
 
   /*
+   * =========================================================
    * HOME SECTIONS
+   * =========================================================
    *
    * Essential:
-   * mengambil produk dari kategori ESSENTIAL VISCOSE.
+   * tetap berdasarkan kategori ESSENTIAL VISCOSE.
    *
    * New Arrivals:
-   * hanya produk dengan is_new_arrival = true.
+   * berdasarkan product_placements = NEW_ARRIVALS.
    *
    * Best Sellers:
-   * hanya produk dengan is_best_seller = true.
+   * berdasarkan product_placements = BEST_SELLERS.
    *
-   * Featured:
-   * hanya produk dengan is_featured = true.
+   * Featured Pieces:
+   * sekarang menjadi placement HOME.
    */
 
-  const essentialProducts = products
-    .filter(
+  const essentialProducts =
+    products
+      .filter(
+        (product) =>
+          product.category.toUpperCase() ===
+          "ESSENTIAL VISCOSE"
+      )
+      .slice(0, 4);
+
+  const newArrivalProducts =
+    products.filter(
       (product) =>
-        product.category.toUpperCase() === "ESSENTIAL VISCOSE",
-    )
-    .slice(0, 4);
+        product.isNew === true
+    );
 
-  const newArrivalProducts = products.filter(
-    (product) => product.isNew === true,
-  );
+  const bestSellerProducts =
+    products.filter(
+      (product) =>
+        product.isBestSeller === true
+    );
 
-  const bestSellerProducts = products.filter(
-    (product) => product.isBestSeller === true,
-  );
-
-  const featuredProducts = products.filter(
-    (product) => product.isFeatured === true,
-  );
+  const homeProducts =
+    products.filter(
+      (product) =>
+        product.isFeatured === true
+    );
 
   return (
     <main>
@@ -320,9 +454,13 @@ export default async function HomePage() {
           />
 
           {essentialProducts.length > 0 ? (
-            <ProductGrid products={essentialProducts} />
+            <ProductGrid
+              products={essentialProducts}
+            />
           ) : (
-            <EmptySection text="No essential products available." />
+            <EmptySection
+              text="No essential products available."
+            />
           )}
         </div>
       </section>
@@ -339,7 +477,9 @@ export default async function HomePage() {
               href="/shop?edit=new"
             />
 
-            <ProductGrid products={newArrivalProducts} />
+            <ProductGrid
+              products={newArrivalProducts}
+            />
           </div>
         </section>
       )}
@@ -399,15 +539,17 @@ export default async function HomePage() {
               href="/shop?edit=best"
             />
 
-            <ProductGrid products={bestSellerProducts} />
+            <ProductGrid
+              products={bestSellerProducts}
+            />
           </div>
         </section>
       )}
 
       {/* =========================================================
-          FEATURED
+          HOME / FEATURED
       ========================================================= */}
-      {featuredProducts.length > 0 && (
+      {homeProducts.length > 0 && (
         <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
@@ -416,7 +558,9 @@ export default async function HomePage() {
               href="/shop?edit=featured"
             />
 
-            <ProductGrid products={featuredProducts} />
+            <ProductGrid
+              products={homeProducts}
+            />
           </div>
         </section>
       )}
@@ -463,8 +607,8 @@ export default async function HomePage() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-looms-gray">
-            Discover new releases, styling inspiration, and the
-            everyday world of LOOMS.
+            Discover new releases, styling inspiration,
+            and the everyday world of LOOMS.
           </p>
 
           <div className="mt-8">
