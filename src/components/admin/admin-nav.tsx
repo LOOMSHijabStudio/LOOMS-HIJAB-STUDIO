@@ -74,11 +74,11 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AdminNav({ role }: { role: AdminRole }) {
+export function AdminNav({ roles }: { roles: string[] }) {
   const pathname = usePathname();
 
   const visibleItems = navItems.filter((item) =>
-    item.roles.includes(role)
+    item.roles.some((role) => roles.includes(role))
   );
 
   return (
