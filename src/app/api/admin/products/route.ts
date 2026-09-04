@@ -3,10 +3,23 @@ import { verifyAdminRequest } from "@/server/auth/api-utils";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 import { isAdmin } from "@/server/authorization/permissions";
-import { getLocalProducts, addLocalProduct } from "@/server/store/products-store";
+import {
+  getLocalProducts,
+  addLocalProduct,
+} from "@/server/store/products-store";
 import { logAuditEvent } from "@/server/auth/audit";
 
 export const dynamic = "force-dynamic";
+
+const ALLOWED_PLACEMENTS = [
+  "HOME",
+  "SHOP",
+  "NEW_ARRIVALS",
+  "COLLECTION",
+  "BEST_SELLERS",
+] as const;
+
+type ProductPlacement = (typeof ALLOWED_PLACEMENTS)[number];
 
 interface ProductListResponse {
   success: boolean;
@@ -62,8 +75,6 @@ export async function GET(
     // ================================
     // 2. JIKA SUPABASE BELUM DISET
     // ================================
-    // Hanya gunakan data lokal jika memang
-    // Supabase belum dikonfigurasi.
     if (!isSupabaseConfigured()) {
       const local = getLocalProducts();
 
@@ -153,8 +164,6 @@ export async function GET(
     // ================================
     // 6. JIKA SUPABASE ERROR
     // ================================
-    // JANGAN fallback ke demo products.
-    // Kita harus menampilkan error sebenarnya.
     if (error) {
       console.error("Products list error:", error);
 
@@ -176,7 +185,6 @@ export async function GET(
         is_primary: boolean;
       }>;
 
-      // Cari gambar utama
       const primaryImagePath =
         images.find((img) => img.is_primary)?.storage_path ||
         images[0]?.storage_path;
@@ -245,6 +253,15 @@ export async function GET(
  * POST /api/admin/products
  *
  * Membuat produk baru.
+ *
+ * Body dapat berisi:
+ * placements: [
+ *   "HOME",
+ *   "SHOP",
+ *   "NEW_ARRIVALS",
+ *   "COLLECTION",
+ *   "BEST_SELLERS"
+ * ]
  */
 export async function POST(request: NextRequest) {
   try {
@@ -285,7 +302,25 @@ export async function POST(request: NextRequest) {
     }
 
     // ================================
-    // 3. BUAT SLUG
+    // 3. VALIDASI PLACEMENTS
+    // ================================
+    const requestedPlacements = Array.isArray(body.placements)
+      ? body.placements
+      : [];
+
+    const placements = requestedPlacements.filter(
+      (placement: unknown): placement is ProductPlacement =>
+        typeof placement === "string" &&
+        ALLOWED_PLACEMENTS.includes(
+          placement as ProductPlacement
+        )
+    );
+
+    // Hapus duplikat placement
+    const uniquePlacements = Array.from(new Set(placements));
+
+    // ================================
+    // 4. BUAT SLUG
     // ================================
     const slug =
       body.slug ||
@@ -295,7 +330,7 @@ export async function POST(request: NextRequest) {
         .replace(/^-|-$/g, "");
 
     // ================================
-    // 4. BUAT SKU
+    // 5. BUAT SKU
     // ================================
     const sku =
       body.sku ||
@@ -304,7 +339,7 @@ export async function POST(request: NextRequest) {
       )}`;
 
     // ================================
-    // 5. JIKA SUPABASE BELUM DISET
+    // 6. JIKA SUPABASE BELUM DISET
     // ================================
     if (!isSupabaseConfigured()) {
       const newProduct = addLocalProduct({
@@ -333,6 +368,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           name: newProduct.name,
           price: newProduct.price,
+          placements: uniquePlacements,
         },
       });
 
@@ -341,18 +377,19 @@ export async function POST(request: NextRequest) {
           success: true,
           message: "Produk berhasil ditambahkan",
           product: newProduct,
+          placements: uniquePlacements,
         },
         { status: 201 }
       );
     }
 
     // ================================
-    // 6. CONNECT KE SUPABASE
+    // 7. CONNECT KE SUPABASE
     // ================================
     const client = createSupabaseServiceClient();
 
     // ================================
-    // 7. INSERT PRODUCT
+    // 8. INSERT PRODUCT
     // ================================
     const { data: newProduct, error: insertError } = await client
       .from("products")
@@ -377,7 +414,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     // ================================
-    // 8. JIKA INSERT GAGAL
+    // 9. JIKA INSERT GAGAL
     // ================================
     if (insertError || !newProduct) {
       console.error(
@@ -397,7 +434,45 @@ export async function POST(request: NextRequest) {
     }
 
     // ================================
-    // 9. AUDIT LOG
+    // 10. INSERT PRODUCT PLACEMENTS
+    // ================================
+    if (uniquePlacements.length > 0) {
+      const placementRows = uniquePlacements.map((placement, index) => ({
+        product_id: newProduct.id,
+        placement,
+        position: index,
+      }));
+
+      const { error: placementError } = await client
+        .from("product_placements")
+        .insert(placementRows);
+
+      if (placementError) {
+        console.error(
+          "Supabase insert product placements error:",
+          placementError
+        );
+
+        // Produk sudah terbuat, tetapi placement gagal.
+        // Kita hapus kembali produknya agar tidak meninggalkan
+        // data produk tanpa placement yang diminta.
+        await client
+          .from("products")
+          .delete()
+          .eq("id", newProduct.id);
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Gagal menyimpan penempatan produk: ${placementError.message}`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // ================================
+    // 11. AUDIT LOG
     // ================================
     await logAuditEvent({
       action: "admin.product_created",
@@ -406,17 +481,19 @@ export async function POST(request: NextRequest) {
       metadata: {
         name: body.name,
         price: body.price,
+        placements: uniquePlacements,
       },
     });
 
     // ================================
-    // 10. BERHASIL
+    // 12. BERHASIL
     // ================================
     return NextResponse.json(
       {
         success: true,
         message: "Produk berhasil ditambahkan",
         productId: newProduct.id,
+        placements: uniquePlacements,
       },
       { status: 201 }
     );
