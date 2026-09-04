@@ -1,1 +1,207 @@
+"use client";
 
+import { useEffect, useState } from "react";
+
+type Product = {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  stock: number;
+  status: string;
+  image?: string;
+};
+
+export default function CollectionAdminPage() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  async function loadProducts() {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        "/api/admin/placements?placement=COLLECTION",
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        setProducts(data.products || []);
+      } else {
+        alert(data.error || "Gagal mengambil produk");
+      }
+    } catch {
+      alert("Terjadi kesalahan saat mengambil produk");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function removeFromCollection(productId: string) {
+    const confirmed = confirm(
+      "Hapus produk ini dari Collection?\n\nProduk tidak akan dihapus dari database."
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch("/api/admin/placements", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          placement: "COLLECTION",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        alert(data.error || "Gagal menghapus produk dari Collection");
+        return;
+      }
+
+      setProducts((current) =>
+        current.filter((product) => product.id !== productId)
+      );
+    } catch {
+      alert("Terjadi kesalahan");
+    }
+  }
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const filteredProducts = products.filter((product) => {
+    const keyword = search.toLowerCase();
+
+    return (
+      product.name.toLowerCase().includes(keyword) ||
+      product.sku.toLowerCase().includes(keyword)
+    );
+  });
+
+  return (
+    <div className="min-h-screen bg-looms-cream p-6">
+      <div className="mx-auto max-w-7xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold text-looms-teal">
+            Collection
+          </h1>
+
+          <p className="mt-2 text-sm text-gray-600">
+            Kelola produk yang ditampilkan di bagian Collection.
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <input
+            type="text"
+            placeholder="Cari produk atau SKU..."
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 outline-none focus:border-looms-teal"
+          />
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+          {loading ? (
+            <div className="p-8 text-center text-gray-500">
+              Memuat produk...
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              Belum ada produk di Collection.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-sm font-medium">
+                      Produk
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium">
+                      SKU
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium">
+                      Harga
+                    </th>
+                    <th className="px-6 py-4 text-left text-sm font-medium">
+                      Stok
+                    </th>
+                    <th className="px-6 py-4 text-right text-sm font-medium">
+                      Aksi
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {filteredProducts.map((product) => (
+                    <tr
+                      key={product.id}
+                      className="border-b last:border-b-0"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="h-16 w-16 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="h-16 w-16 rounded-lg bg-gray-100" />
+                          )}
+
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {product.name}
+                            </div>
+
+                            <div className="text-xs text-gray-500">
+                              {product.status}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {product.sku}
+                      </td>
+
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        Rp {product.price.toLocaleString("id-ID")}
+                      </td>
+
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {product.stock}
+                      </td>
+
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() =>
+                            removeFromCollection(product.id)
+                          }
+                          className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
+                        >
+                          Hapus dari Collection
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
