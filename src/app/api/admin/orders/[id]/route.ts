@@ -1,10 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/server/authorization/permissions";
-import { verifyAdminRequest } from "@/server/auth/api-utils";
+import { requireAdmin } from "@/server/auth/require-admin";
 import { logAuditEvent } from "@/server/auth/audit";
-
-export const dynamic = "force-dynamic";
 
 type RouteContext = {
   params: Promise<{
@@ -12,81 +9,45 @@ type RouteContext = {
   }>;
 };
 
-/**
- * GET
- * Menampilkan detail lengkap satu pesanan.
- */
 export async function GET(
-  request: NextRequest,
+  request: Request,
   context: RouteContext,
 ) {
-  void request;
-
-  const verification = await verifyAdminRequest();
-
-  if (!verification.success) {
-    return verification.response;
-  }
-
-  if (!(await isAdmin())) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized",
-      },
-      { status: 403 },
-    );
-  }
-
   try {
-    const { id } = await context.params;
+    await requireAdmin();
 
-    if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order ID is required",
-        },
-        { status: 400 },
-      );
-    }
+    const { id } = await context.params;
 
     const client = createSupabaseServiceClient();
 
-    // Ambil order
-    const {
-      data: order,
-      error: orderError,
-    } = await client
+    /* =====================================================
+       ORDER
+       ===================================================== */
+
+    const { data: order, error: orderError } = await client
       .from("orders")
-      .select(
-        `
-          id,
-          order_number,
-          customer_id,
-          address_id,
-          status,
-          subtotal,
-          shipping_amount,
-          total,
-          notes,
-          created_at,
-          updated_at
-        `,
-      )
+      .select(`
+        id,
+        order_number,
+        customer_id,
+        address_id,
+        status,
+        subtotal,
+        shipping_amount,
+        total,
+        customer_notes,
+        created_at,
+        updated_at
+      `)
       .eq("id", id)
       .maybeSingle();
 
     if (orderError) {
-      console.error(
-        "Admin order detail query error:",
-        orderError,
-      );
-
+      console.error("ADMIN ORDER DETAIL - ORDER ERROR:", orderError);
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to fetch order",
+          error: orderError.message,
         },
         { status: 500 },
       );
@@ -102,22 +63,28 @@ export async function GET(
       );
     }
 
-    // Ambil customer
+
+    /* =====================================================
+       CUSTOMER
+       ===================================================== */
+
     let customer = null;
 
     if (order.customer_id) {
-      const {
-        data: customerData,
-        error: customerError,
-      } = await client
+      const { data: customerData, error: customerError } = await client
         .from("customers")
-        .select("*")
+        .select(`
+          id,
+          full_name,
+          whatsapp_number,
+          email
+        `)
         .eq("id", order.customer_id)
         .maybeSingle();
 
       if (customerError) {
         console.error(
-          "Admin customer query error:",
+          "ADMIN ORDER DETAIL - CUSTOMER ERROR:",
           customerError,
         );
       }
@@ -125,22 +92,30 @@ export async function GET(
       customer = customerData ?? null;
     }
 
-    // Ambil alamat
+
+    /* =====================================================
+       ADDRESS
+       ===================================================== */
+
     let address = null;
 
     if (order.address_id) {
-      const {
-        data: addressData,
-        error: addressError,
-      } = await client
+      const { data: addressData, error: addressError } = await client
         .from("addresses")
-        .select("*")
+        .select(`
+          id,
+          province,
+          city,
+          district,
+          postal_code,
+          full_address
+        `)
         .eq("id", order.address_id)
         .maybeSingle();
 
       if (addressError) {
         console.error(
-          "Admin address query error:",
+          "ADMIN ORDER DETAIL - ADDRESS ERROR:",
           addressError,
         );
       }
@@ -148,145 +123,144 @@ export async function GET(
       address = addressData ?? null;
     }
 
-    // Ambil item pesanan
-    const {
-      data: items,
-      error: itemsError,
-    } = await client
+
+    /* =====================================================
+       ORDER ITEMS
+       ===================================================== */
+
+    const { data: items, error: itemsError } = await client
       .from("order_items")
-      .select("*")
+      .select(`
+        id,
+        order_id,
+        product_id,
+        variant_id,
+        product_name_snapshot,
+        variant_name_snapshot,
+        sku_snapshot,
+        quantity,
+        unit_price,
+        subtotal,
+        created_at
+      `)
       .eq("order_id", id)
-      .order("created_at", {
-        ascending: true,
-      });
+      .order("created_at", { ascending: true });
 
     if (itemsError) {
       console.error(
-        "Admin order items query error:",
+        "ADMIN ORDER DETAIL - ITEMS ERROR:",
         itemsError,
       );
 
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to fetch order items",
+          error: itemsError.message,
         },
         { status: 500 },
       );
     }
 
-    // Ambil riwayat status
-    const {
-      data: statusHistory,
-      error: historyError,
-    } = await client
+
+    /* =====================================================
+       STATUS HISTORY
+       ===================================================== */
+
+    const { data: statusHistory, error: historyError } = await client
       .from("order_status_history")
-      .select("*")
-      .eq("order_id", id)
-      .order("created_at", {
-        ascending: false,
-      });
+      .select(`
+        order_id,
+        status
+      `)
+      .eq("order_id", id);
 
     if (historyError) {
       console.error(
-        "Admin order history query error:",
+        "ADMIN ORDER DETAIL - HISTORY ERROR:",
         historyError,
       );
     }
 
+
+    /* =====================================================
+       RETURN
+       ===================================================== */
+
     return NextResponse.json({
       success: true,
 
-      order,
+      order: {
+        ...order,
 
-      customer,
+        customer,
 
-      address,
+        address,
 
-      items: items ?? [],
+        items: items ?? [],
 
-      statusHistory: statusHistory ?? [],
+        status_history: statusHistory ?? [],
+      },
     });
+
   } catch (error) {
-    console.error(
-      "Admin order detail error:",
-      error,
-    );
+    console.error("ADMIN ORDER DETAIL ERROR:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to fetch order";
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to fetch order detail",
+        error: message,
       },
       { status: 500 },
     );
   }
 }
 
-/**
- * DELETE
- * Menghapus satu pesanan.
- */
+
+/* =========================================================
+   DELETE ORDER
+   ========================================================= */
+
 export async function DELETE(
-  request: NextRequest,
+  request: Request,
   context: RouteContext,
 ) {
-  void request;
-
-  const verification = await verifyAdminRequest();
-
-  if (!verification.success) {
-    return verification.response;
-  }
-
-  if (!(await isAdmin())) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized",
-      },
-      { status: 403 },
-    );
-  }
-
   try {
-    const { id } = await context.params;
+    const session = await requireAdmin();
 
-    if (!id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Order ID is required",
-        },
-        { status: 400 },
-      );
-    }
+    const { id } = await context.params;
 
     const client = createSupabaseServiceClient();
 
-    // Ambil data order sebelum dihapus
-    // supaya audit log tetap punya informasi order.
-    const {
-      data: order,
-      error: findError,
-    } = await client
+
+    /* -----------------------------------------------------
+       AMBIL ORDER SEBELUM DELETE
+       ----------------------------------------------------- */
+
+    const { data: order, error: findError } = await client
       .from("orders")
-      .select(
-        "id, order_number, customer_id, status, total",
-      )
+      .select(`
+        id,
+        order_number,
+        customer_id
+      `)
       .eq("id", id)
       .maybeSingle();
 
     if (findError) {
       console.error(
-        "Find order before delete error:",
+        "ADMIN ORDER DELETE - FIND ERROR:",
         findError,
       );
 
       return NextResponse.json(
         {
           success: false,
-          error: "Failed to find order",
+          error: findError.message,
         },
         { status: 500 },
       );
@@ -302,91 +276,71 @@ export async function DELETE(
       );
     }
 
-    // Ambil customer untuk audit.
-    let customerName = null;
-    let customerWhatsapp = null;
 
-    if (order.customer_id) {
-      const {
-        data: customer,
-      } = await client
-        .from("customers")
-        .select(
-          "full_name, whatsapp_number",
-        )
-        .eq("id", order.customer_id)
-        .maybeSingle();
+    /* -----------------------------------------------------
+       DELETE
+       ----------------------------------------------------- */
 
-      customerName =
-        customer?.full_name ?? null;
-
-      customerWhatsapp =
-        customer?.whatsapp_number ?? null;
-    }
-
-    // Hapus order.
-    //
-    // Relasi order_items dan order_status_history
-    // idealnya sudah menggunakan ON DELETE CASCADE.
-    const {
-      error: deleteError,
-    } = await client
+    const { error: deleteError } = await client
       .from("orders")
       .delete()
       .eq("id", id);
 
     if (deleteError) {
       console.error(
-        "Delete order error:",
+        "ADMIN ORDER DELETE ERROR:",
         deleteError,
       );
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Pesanan tidak dapat dihapus. Pastikan data terkait mengizinkan penghapusan.",
+          error: deleteError.message,
         },
         { status: 500 },
       );
     }
 
-    // Simpan aktivitas penghapusan ke audit log.
-    await logAuditEvent({
-      action: "admin.order_deleted",
 
-      entityType: "order",
+    /* -----------------------------------------------------
+       AUDIT LOG
+       ----------------------------------------------------- */
 
-      entityId: id,
+    try {
+      await logAuditEvent({
+        actorUserId: session?.userId ?? null,
+        action: "admin.order_deleted",
+        entityType: "order",
+        entityId: id,
+        metadata: {
+          orderNumber: order.order_number,
+          customerId: order.customer_id,
+        },
+      });
+    } catch (auditError) {
+      console.error(
+        "ADMIN ORDER DELETE - AUDIT ERROR:",
+        auditError,
+      );
+    }
 
-      metadata: {
-        orderNumber: order.order_number,
-
-        customerName,
-
-        customerWhatsapp,
-
-        total: order.total,
-
-        previousStatus: order.status,
-      },
-    });
 
     return NextResponse.json({
       success: true,
-
-      message: "Pesanan berhasil dihapus",
     });
+
   } catch (error) {
-    console.error(
-      "Admin order delete error:",
-      error,
-    );
+    console.error("ADMIN ORDER DELETE ERROR:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Failed to delete order";
 
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to delete order",
+        error: message,
       },
       { status: 500 },
     );
