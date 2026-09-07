@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -40,6 +39,7 @@ export default function AdminOrdersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadOrders() {
     try {
@@ -87,6 +87,54 @@ export default function AdminOrdersPage() {
     void loadOrders();
   }, [page, status]);
 
+  async function deleteOrder(order: Order) {
+    const confirmed = window.confirm(
+      `Hapus pesanan ${order.order_number}?\n\nData pesanan ini akan dihapus dan tidak bisa dikembalikan.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingId(order.id);
+      setError(null);
+
+      const response = await fetch(
+        `/api/admin/orders/${order.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error || "Failed to delete order"
+        );
+      }
+
+      setOrders((current) =>
+        current.filter(
+          (item) => item.id !== order.id
+        )
+      );
+
+      setTotal((current) =>
+        Math.max(0, current - 1)
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Failed to delete order"
+      );
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   const totalPages = Math.max(
     1,
     Math.ceil(total / pageSize)
@@ -114,7 +162,8 @@ export default function AdminOrdersPage() {
         <button
           type="button"
           onClick={() => void loadOrders()}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50"
+          disabled={loading}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Refresh
         </button>
@@ -254,13 +303,31 @@ export default function AdminOrdersPage() {
                         ).toLocaleString("id-ID")}
                       </td>
 
-                      <td className="px-5 py-4 text-right">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="inline-flex rounded-lg bg-looms-teal px-4 py-2 text-xs font-medium text-white hover:opacity-90"
-                        >
-                          View
-                        </Link>
+                      {/* ACTIONS */}
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end gap-2">
+
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            className="inline-flex rounded-lg bg-looms-teal px-4 py-2 text-xs font-medium text-white hover:opacity-90"
+                          >
+                            View
+                          </Link>
+
+                          <button
+                            type="button"
+                            disabled={deletingId === order.id}
+                            onClick={() =>
+                              void deleteOrder(order)
+                            }
+                            className="inline-flex rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingId === order.id
+                              ? "Menghapus..."
+                              : "Hapus"}
+                          </button>
+
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -316,12 +383,30 @@ export default function AdminOrdersPage() {
                     </div>
                   </div>
 
-                  <Link
-                    href={`/admin/orders/${order.id}`}
-                    className="block rounded-lg bg-looms-teal px-4 py-2.5 text-center text-sm font-medium text-white"
-                  >
-                    View Detail
-                  </Link>
+                  {/* MOBILE ACTIONS */}
+                  <div className="flex gap-2">
+
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="flex-1 rounded-lg bg-looms-teal px-4 py-2.5 text-center text-sm font-medium text-white"
+                    >
+                      View Detail
+                    </Link>
+
+                    <button
+                      type="button"
+                      disabled={deletingId === order.id}
+                      onClick={() =>
+                        void deleteOrder(order)
+                      }
+                      className="rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deletingId === order.id
+                        ? "..."
+                        : "Hapus"}
+                    </button>
+
+                  </div>
                 </div>
               ))}
             </div>
