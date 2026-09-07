@@ -4,7 +4,6 @@ import { z } from "zod";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/server/authorization/permissions";
 import { verifyAdminRequest } from "@/server/auth/api-utils";
-import { logAuditEvent } from "@/server/auth/audit";
 
 const idSchema = z.string().uuid();
 
@@ -13,6 +12,10 @@ type RouteContext = {
     id: string;
   }>;
 };
+
+// ======================================================
+// GET ORDER DETAIL
+// ======================================================
 
 export async function GET(
   _request: Request,
@@ -50,9 +53,13 @@ export async function GET(
     const client = createSupabaseServiceClient();
 
     // ================================
-    // GET ORDER
+    // ORDER
     // ================================
-    const { data: order, error: orderError } = await client
+
+    const {
+      data: order,
+      error: orderError,
+    } = await client
       .from("orders")
       .select("*")
       .eq("id", id)
@@ -84,8 +91,9 @@ export async function GET(
     }
 
     // ================================
-    // GET CUSTOMER
+    // CUSTOMER
     // ================================
+
     let customer = null;
 
     if (order.customer_id) {
@@ -111,8 +119,9 @@ export async function GET(
     }
 
     // ================================
-    // GET ADDRESS
+    // ADDRESS
     // ================================
+
     let address = null;
 
     if (order.address_id) {
@@ -138,8 +147,9 @@ export async function GET(
     }
 
     // ================================
-    // GET ORDER ITEMS
+    // ORDER ITEMS
     // ================================
+
     const {
       data: items,
       error: itemsError,
@@ -167,8 +177,9 @@ export async function GET(
     }
 
     // ================================
-    // GET STATUS HISTORY
+    // STATUS HISTORY
     // ================================
+
     const {
       data: statusHistory,
       error: historyError,
@@ -190,19 +201,21 @@ export async function GET(
     // ================================
     // RESPONSE
     // ================================
+
     return NextResponse.json({
       success: true,
 
       order: {
         ...order,
 
-        customer: customer,
+        customer,
 
-        address: address,
+        address,
 
         items: items ?? [],
 
-        status_history: statusHistory ?? [],
+        status_history:
+          statusHistory ?? [],
       },
     });
   } catch (error) {
@@ -266,8 +279,9 @@ export async function DELETE(
     const client = createSupabaseServiceClient();
 
     // ================================
-    // FIND ORDER
+    // CHECK ORDER
     // ================================
+
     const {
       data: order,
       error: findError,
@@ -305,8 +319,9 @@ export async function DELETE(
     }
 
     // ================================
-    // DELETE ORDER
+    // DELETE
     // ================================
+
     const {
       error: deleteError,
     } = await client
@@ -330,39 +345,16 @@ export async function DELETE(
     }
 
     // ================================
-    // AUDIT LOG
-    // ================================
-    try {
-      await logAuditEvent({
-        actor_user_id:
-          verification.session.userId,
-
-        action: "admin.order_deleted",
-
-        entity_type: "order",
-
-        entity_id: id,
-
-        metadata: {
-          orderNumber:
-            order.order_number,
-
-          customerId:
-            order.customer_id,
-        },
-      });
-    } catch (auditError) {
-      console.error(
-        "ADMIN ORDER DELETE - AUDIT ERROR:",
-        auditError
-      );
-    }
-
-    // ================================
     // RESPONSE
     // ================================
+
     return NextResponse.json({
       success: true,
+      deletedOrder: {
+        id: order.id,
+        order_number:
+          order.order_number,
+      },
     });
   } catch (error) {
     console.error(
