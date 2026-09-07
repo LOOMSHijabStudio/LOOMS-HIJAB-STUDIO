@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 const statuses = [
   "PENDING",
@@ -13,362 +13,541 @@ const statuses = [
   "CANCELLED",
 ];
 
-const money = (value: number | string | null | undefined) =>
-  `Rp ${Number(value ?? 0).toLocaleString("id-ID")}`;
+const money = (value: number | string) =>
+  `Rp ${Number(value).toLocaleString("id-ID")}`;
 
-type Customer = {
-  full_name?: string | null;
-  whatsapp_number?: string | null;
-  email?: string | null;
-};
-
-type Order = {
+type OrderData = {
   id: string;
   order_number: string;
   status: string;
   subtotal: number | string;
   shipping_amount: number | string;
   total: number | string;
+  customer_notes: string | null;
   created_at: string;
-  customers: Customer | null;
+  updated_at: string;
 };
 
-export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("");
+type CustomerData = {
+  id: string;
+  full_name: string;
+  whatsapp_number: string;
+  email: string | null;
+} | null;
+
+type AddressData = {
+  id: string;
+  province: string;
+  city: string;
+  district: string;
+  postal_code: string;
+  full_address: string;
+} | null;
+
+type OrderItem = {
+  id: string;
+  product_name_snapshot: string;
+  variant_name_snapshot: string | null;
+  sku_snapshot: string;
+  quantity: number;
+  unit_price: number | string;
+  subtotal: number | string;
+};
+
+type StatusHistory = {
+  id?: string;
+  order_id?: string;
+  status?: string;
+  from_status?: string | null;
+  to_status?: string;
+  created_at?: string;
+};
+
+type Detail = {
+  order: OrderData & {
+    customer: CustomerData;
+    address: AddressData;
+    items: OrderItem[];
+    status_history: StatusHistory[];
+  };
+};
+
+export default function AdminOrderDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
+
+  const [detail, setDetail] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  const loadOrders = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true);
-      setError(null);
+  useEffect(() => {
+    let cancelled = false;
 
+    async function loadOrder() {
       try {
-        const params = new URLSearchParams();
-
-        if (search.trim()) {
-          params.set("search", search.trim());
-        }
-
-        if (status) {
-          params.set("status", status);
-        }
+        setError(null);
 
         const response = await fetch(
-          `/api/admin/orders?${params.toString()}`,
+          `/api/admin/orders/${id}`,
           {
-            method: "GET",
             cache: "no-store",
-            signal,
-          },
+          }
         );
 
         const data = await response.json();
 
         if (!response.ok || !data.success) {
           throw new Error(
-            data.error || "Failed to fetch orders",
+            data.error || "Failed to load order"
           );
         }
 
-        setOrders(data.orders ?? []);
-      } catch (loadError) {
-        if (
-          loadError instanceof DOMException &&
-          loadError.name === "AbortError"
-        ) {
-          return;
+        if (!cancelled) {
+          setDetail(data);
         }
-
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : "Failed to fetch orders",
-        );
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Failed to load order"
+          );
         }
       }
-    },
-    [search, status],
-  );
+    }
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const timer = window.setTimeout(() => {
-      void loadOrders(controller.signal);
-    }, 250);
+    void loadOrder();
 
     return () => {
-      window.clearTimeout(timer);
-      controller.abort();
+      cancelled = true;
     };
-  }, [loadOrders]);
+  }, [id]);
 
-  async function handleDelete(order: Order) {
-    const confirmed = window.confirm(
-      `Yakin ingin menghapus pesanan ${order.order_number}?\n\nData pesanan akan dihapus dari daftar pesanan.`,
-    );
+  async function updateStatus(status: string) {
+    if (!detail) return;
 
-    if (!confirmed) {
+    const previousStatus = detail.order.status;
+
+    if (status === previousStatus) {
       return;
     }
 
-    setDeletingId(order.id);
+    setSaving(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/admin/orders/${order.id}`,
+        `/api/admin/orders/${id}/status`,
         {
-          method: "DELETE",
-        },
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            status,
+          }),
+        }
       );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.error || "Gagal menghapus pesanan",
+          data.error || "Failed to update status"
         );
       }
 
-      setOrders((current) =>
-        current.filter(
-          (item) => item.id !== order.id,
-        ),
-      );
-    } catch (deleteError) {
+      setDetail((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          order: {
+            ...current.order,
+            status,
+          },
+        };
+      });
+    } catch (updateError) {
       setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : "Gagal menghapus pesanan",
+        updateError instanceof Error
+          ? updateError.message
+          : "Failed to update status"
       );
     } finally {
-      setDeletingId(null);
+      setSaving(false);
     }
   }
 
-  return (
-    <div className="space-y-6">
-      {/* HEADER */}
-      <div>
-        <p className="text-xs font-medium uppercase tracking-[0.2em] text-looms-gray/60">
-          Commerce
-        </p>
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <Link
+          href="/admin/orders"
+          className="text-sm text-looms-teal hover:underline"
+        >
+          ← Semua pesanan
+        </Link>
 
-        <h1 className="mt-2 font-display text-4xl text-looms-teal">
-          Pesanan
-        </h1>
+        <div className="border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
-        <p className="mt-2 text-sm text-gray-500">
-          Kelola seluruh pesanan pelanggan dari sini.
+  if (!detail) {
+    return (
+      <div className="space-y-4">
+        <Link
+          href="/admin/orders"
+          className="text-sm text-looms-teal hover:underline"
+        >
+          ← Semua pesanan
+        </Link>
+
+        <p className="text-sm text-gray-500">
+          Memuat pesanan...
         </p>
       </div>
+    );
+  }
 
-      {/* ERROR */}
+  const order = detail.order;
+  const customer = order.customer;
+  const address = order.address;
+  const items = order.items ?? [];
+  const history = order.status_history ?? [];
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+
+      {/* BACK */}
+      <Link
+        href="/admin/orders"
+        className="text-sm text-looms-teal hover:underline"
+      >
+        ← Semua pesanan
+      </Link>
+
+      {/* HEADER */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div>
+          <p className="text-xs uppercase tracking-[0.16em] text-gray-500">
+            Order
+          </p>
+
+          <h1 className="mt-2 font-display text-4xl text-looms-teal">
+            {order.order_number}
+          </h1>
+        </div>
+
+        <div>
+          <p className="mb-2 text-xs text-gray-500">
+            Status Pesanan
+          </p>
+
+          <select
+            disabled={saving}
+            value={order.status}
+            onChange={(event) =>
+              void updateStatus(event.target.value)
+            }
+            className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm"
+          >
+            {statuses.map((status) => (
+              <option
+                key={status}
+                value={status}
+              >
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ERROR UPDATE */}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {/* FILTER */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <input
-          value={search}
-          onChange={(event) =>
-            setSearch(event.target.value)
-          }
-          placeholder="Cari nomor order, nama, atau WhatsApp"
-          className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-looms-teal"
-        />
+      {/* CUSTOMER + ADDRESS */}
+      <div className="grid gap-6 md:grid-cols-2">
 
-        <select
-          value={status}
-          onChange={(event) =>
-            setStatus(event.target.value)
-          }
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-looms-teal"
-        >
-          <option value="">
-            Semua status
-          </option>
+        {/* CUSTOMER */}
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="font-display text-2xl text-looms-teal">
+            Customer
+          </h2>
 
-          {statuses.map((option) => (
-            <option
-              key={option}
-              value={option}
-            >
-              {option}
-            </option>
-          ))}
-        </select>
+          {customer ? (
+            <div className="mt-4 space-y-2 text-sm">
+              <p>
+                <span className="font-medium">
+                  Nama
+                </span>
+                <br />
+                {customer.full_name}
+              </p>
+
+              <p>
+                <span className="font-medium">
+                  WhatsApp
+                </span>
+                <br />
+                {customer.whatsapp_number}
+              </p>
+
+              <p>
+                <span className="font-medium">
+                  Email
+                </span>
+                <br />
+                {customer.email ?? "-"}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">
+              Data customer tidak ditemukan.
+            </p>
+          )}
+        </section>
+
+        {/* ADDRESS */}
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+          <h2 className="font-display text-2xl text-looms-teal">
+            Pengiriman
+          </h2>
+
+          {address ? (
+            <div className="mt-4 space-y-1 text-sm">
+              <p>
+                {address.full_address}
+              </p>
+
+              <p>
+                {address.district},{" "}
+                {address.city}
+              </p>
+
+              <p>
+                {address.province},{" "}
+                {address.postal_code}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-gray-500">
+              Alamat tidak ditemukan.
+            </p>
+          )}
+        </section>
       </div>
 
-      {/* TABLE */}
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-left">
-            <thead className="bg-gray-50 text-xs uppercase tracking-[0.12em] text-gray-500">
-              <tr>
-                <th className="whitespace-nowrap px-4 py-3">
-                  Order
-                </th>
+      {/* ORDER ITEMS */}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="font-display text-2xl text-looms-teal">
+          Items
+        </h2>
 
-                <th className="whitespace-nowrap px-4 py-3">
-                  Customer
-                </th>
+        {items.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500">
+            Tidak ada item dalam pesanan.
+          </p>
+        ) : (
+          <div className="mt-4 divide-y divide-gray-200">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="flex justify-between gap-4 py-4 text-sm"
+              >
+                <div>
+                  <p className="font-medium">
+                    {item.product_name_snapshot}
+                  </p>
 
-                <th className="whitespace-nowrap px-4 py-3">
-                  Total
-                </th>
+                  <p className="mt-1 text-gray-500">
+                    {item.variant_name_snapshot ??
+                      "Default"}
+                    {" · "}
+                    Qty {item.quantity}
+                  </p>
 
-                <th className="whitespace-nowrap px-4 py-3">
-                  Status
-                </th>
+                  <p className="mt-1 text-xs text-gray-400">
+                    SKU: {item.sku_snapshot}
+                  </p>
+                </div>
 
-                <th className="whitespace-nowrap px-4 py-3">
-                  Tanggal
-                </th>
+                <div className="text-right">
+                  <p>
+                    {money(
+                      Number(item.unit_price) *
+                        item.quantity
+                    )}
+                  </p>
 
-                <th className="whitespace-nowrap px-4 py-3 text-right">
-                  Aksi
-                </th>
-              </tr>
-            </thead>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {money(item.unit_price)} / item
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-            <tbody className="divide-y divide-gray-200 text-sm">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-12 text-center text-gray-500"
-                  >
-                    Memuat pesanan...
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-12 text-center text-gray-500"
-                  >
-                    Belum ada pesanan.
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => (
-                  <tr
-                    key={order.id}
-                    className="transition hover:bg-gray-50"
-                  >
-                    {/* ORDER */}
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <Link
-                        href={`/admin/orders/${order.id}`}
-                        className="font-medium text-looms-teal hover:underline"
-                      >
-                        {order.order_number}
-                      </Link>
-                    </td>
+        {/* TOTAL */}
+        <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
 
-                    {/* CUSTOMER */}
-                    <td className="px-4 py-4">
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {order.customers
-                            ?.full_name || "-"}
-                        </p>
+          <p className="flex justify-between">
+            <span>Subtotal</span>
+            <span>
+              {money(order.subtotal)}
+            </span>
+          </p>
 
-                        {order.customers
-                          ?.whatsapp_number && (
-                          <p className="mt-1 text-xs text-gray-500">
-                            {
-                              order.customers
-                                .whatsapp_number
-                            }
-                          </p>
-                        )}
-                      </div>
-                    </td>
+          <p className="mt-2 flex justify-between">
+            <span>Shipping</span>
+            <span>
+              {money(order.shipping_amount)}
+            </span>
+          </p>
 
-                    {/* TOTAL */}
-                    <td className="whitespace-nowrap px-4 py-4 font-medium">
-                      {money(order.total)}
-                    </td>
-
-                    {/* STATUS */}
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                          order.status ===
-                          "COMPLETED"
-                            ? "bg-green-100 text-green-700"
-                            : order.status ===
-                                "CANCELLED"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {order.status}
-                      </span>
-                    </td>
-
-                    {/* DATE */}
-                    <td className="whitespace-nowrap px-4 py-4 text-gray-500">
-                      {new Date(
-                        order.created_at,
-                      ).toLocaleDateString(
-                        "id-ID",
-                        {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        },
-                      )}
-                    </td>
-
-                    {/* ACTION */}
-                    <td className="whitespace-nowrap px-4 py-4">
-                      <div className="flex justify-end gap-2">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="rounded-lg border border-looms-teal px-3 py-2 text-xs font-medium text-looms-teal transition hover:bg-looms-teal hover:text-white"
-                        >
-                          View
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleDelete(order)
-                          }
-                          disabled={
-                            deletingId ===
-                            order.id
-                          }
-                          className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {deletingId ===
-                          order.id
-                            ? "Menghapus..."
-                            : "Hapus"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <p className="mt-3 flex justify-between text-base font-medium">
+            <span>Total</span>
+            <span>
+              {money(order.total)}
+            </span>
+          </p>
         </div>
-      </div>
+
+        {/* NOTES */}
+        {order.customer_notes && (
+          <div className="mt-5 border-t border-gray-200 pt-4">
+            <p className="text-sm font-medium">
+              Catatan Customer
+            </p>
+
+            <p className="mt-2 text-sm text-gray-600">
+              {order.customer_notes}
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ORDER INFO */}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="font-display text-2xl text-looms-teal">
+          Informasi Pesanan
+        </h2>
+
+        <div className="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+
+          <div>
+            <p className="text-xs text-gray-500">
+              Order ID
+            </p>
+
+            <p className="mt-1 break-all">
+              {order.id}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-500">
+              Dibuat
+            </p>
+
+            <p className="mt-1">
+              {new Date(
+                order.created_at
+              ).toLocaleString("id-ID")}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-500">
+              Terakhir diperbarui
+            </p>
+
+            <p className="mt-1">
+              {new Date(
+                order.updated_at
+              ).toLocaleString("id-ID")}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-gray-500">
+              Status
+            </p>
+
+            <p className="mt-1 font-medium">
+              {order.status}
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      {/* STATUS HISTORY */}
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="font-display text-2xl text-looms-teal">
+          Status History
+        </h2>
+
+        {history.length === 0 ? (
+          <p className="mt-4 text-sm text-gray-500">
+            Belum ada riwayat status.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3 text-sm">
+            {history.map((entry, index) => {
+              const status =
+                entry.to_status ??
+                entry.status ??
+                "-";
+
+              const previous =
+                entry.from_status ??
+                (index === 0
+                  ? "NEW"
+                  : null);
+
+              return (
+                <div
+                  key={
+                    entry.id ??
+                    `${status}-${index}`
+                  }
+                  className="rounded-lg bg-gray-50 p-3"
+                >
+                  <p className="font-medium">
+                    {previous
+                      ? `${previous} → ${status}`
+                      : status}
+                  </p>
+
+                  {entry.created_at && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {new Date(
+                        entry.created_at
+                      ).toLocaleString(
+                        "id-ID"
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
     </div>
   );
 }
