@@ -13,7 +13,7 @@ const inputClass =
 const shippingRates: Record<string, number> = {
   "DKI Jakarta": 10000,
   "Jawa Barat": 10000,
-  "Banten": 10000,
+  Banten: 10000,
   "Jawa Tengah": 15000,
   "DI Yogyakarta": 15000,
   "Jawa Timur": 15000,
@@ -75,10 +75,8 @@ export default function CheckoutPage() {
   });
 
   /*
-   * Tampilan ongkir di halaman checkout.
-   *
-   * Database nantinya tetap menjadi sumber kebenaran
-   * untuk total order.
+   * Ongkir yang hanya digunakan untuk tampilan.
+   * Total sebenarnya tetap dihitung oleh database.
    */
   const shipping =
     subtotal >= 500000
@@ -112,9 +110,8 @@ export default function CheckoutPage() {
     try {
       /*
        * Satu checkout = satu idempotency key.
-       *
-       * Ini mencegah double order apabila tombol
-       * checkout ditekan dua kali.
+       * Mencegah double order ketika tombol ditekan
+       * lebih dari satu kali.
        */
       const idempotencyKey =
         globalThis.crypto?.randomUUID?.() ??
@@ -123,17 +120,28 @@ export default function CheckoutPage() {
           .slice(2)}`;
 
       /*
-       * Kirim hanya data yang dibutuhkan server.
+       * Kirim hanya data yang diperlukan server.
        *
-       * Harga TIDAK dikirim dari browser.
-       * Server/database yang menentukan harga final.
+       * PENTING:
+       * Produk yang tidak mempunyai variant TIDAK
+       * mengirim variantId.
+       *
+       * Ini mencegah variantId lama dari localStorage
+       * dianggap sebagai variant aktif oleh database.
        */
       const payload = {
         idempotencyKey,
 
         items: items.map((item) => ({
           productId: item.productId,
-          variantId: item.variantId || undefined,
+
+          ...(item.product.variants.length > 0 &&
+          item.variantId
+            ? {
+                variantId: item.variantId,
+              }
+            : {}),
+
           quantity: item.quantity,
         })),
 
@@ -180,7 +188,7 @@ export default function CheckoutPage() {
       /*
        * Order sudah berhasil masuk database.
        *
-       * Baru setelah itu kita membuka WhatsApp.
+       * Baru setelah itu buka WhatsApp.
        */
       if (!result.whatsappUrl) {
         throw new Error(
@@ -247,9 +255,7 @@ export default function CheckoutPage() {
           onSubmit={submit}
           className="space-y-8"
         >
-          {/* ========================= */}
           {/* CONTACT */}
-          {/* ========================= */}
 
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
@@ -314,9 +320,7 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ========================= */}
           {/* SHIPPING ADDRESS */}
-          {/* ========================= */}
 
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
@@ -447,9 +451,7 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ========================= */}
           {/* ERROR */}
-          {/* ========================= */}
 
           {errorMessage && (
             <div className="border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-700">
@@ -463,9 +465,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* ========================= */}
           {/* SUBMIT */}
-          {/* ========================= */}
 
           <button
             type="submit"
@@ -484,9 +484,7 @@ export default function CheckoutPage() {
           </p>
         </form>
 
-        {/* ========================= */}
         {/* ORDER SUMMARY */}
-        {/* ========================= */}
 
         <aside className="h-fit border-t border-looms-teal/20 pt-6 lg:sticky lg:top-8 lg:border-t-0 lg:pt-0">
           <h2 className="font-display text-3xl text-looms-teal">
@@ -501,7 +499,7 @@ export default function CheckoutPage() {
 
               return (
                 <div
-                  key={`${item.productId}-${item.variantId}`}
+                  key={`${item.productId}-${item.variantId ?? "default"}`}
                   className="flex justify-between gap-4 text-sm"
                 >
                   <div>
@@ -510,8 +508,10 @@ export default function CheckoutPage() {
                     </p>
 
                     <p className="mt-1 text-xs text-looms-gray">
-                      {item.variant} · Qty{" "}
-                      {item.quantity}
+                      {item.product.variants.length > 0
+                        ? item.variant
+                        : "Default"}{" "}
+                      · Qty {item.quantity}
                     </p>
                   </div>
 
@@ -526,9 +526,7 @@ export default function CheckoutPage() {
             })}
           </div>
 
-          {/* ========================= */}
           {/* TOTAL */}
-          {/* ========================= */}
 
           <div className="mt-6 space-y-3 border-t border-looms-teal/15 pt-5 text-sm">
             <div className="flex justify-between">
