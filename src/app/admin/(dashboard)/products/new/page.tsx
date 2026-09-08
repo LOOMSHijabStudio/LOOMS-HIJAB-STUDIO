@@ -13,6 +13,7 @@ interface ProductFormState {
   price: string;
   sale_price: string;
   stock: string;
+  availability: string;
   image: string;
   material: string;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
@@ -26,6 +27,7 @@ const initialForm: ProductFormState = {
   price: "",
   sale_price: "",
   stock: "10",
+  availability: "regular",
   image: "/images/editorial-sand.svg",
   material: "Premium Satin Voile",
   status: "ACTIVE",
@@ -182,6 +184,7 @@ export default function NewProductPage() {
         image: form.image,
         material: form.material,
         status: form.status,
+        availability: form.availability,
 
         // INI YANG BARU
         placements: selectedPlacements,
@@ -406,6 +409,27 @@ export default function NewProductPage() {
               </option>
             </select>
           </div>
+
+          {/* AVAILABILITY */}
+<div>
+  <label className="block font-semibold text-gray-700 mb-1.5">
+    Availability
+  </label>
+  <select
+    value={form.availability}
+    onChange={(event) =>
+      updateField("availability", event.target.value)
+    }
+    className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 bg-gray-50 focus:bg-white focus:border-looms-teal focus:outline-none text-xs"
+  >
+    <option value="regular">Regular</option>
+    <option value="preorder_3">Pre-Order 3 hari</option>
+    <option value="preorder_4">Pre-Order 4 hari</option>
+    <option value="preorder_7">Pre-Order 7 hari</option>
+    <option value="preorder_14">Pre-Order 14 hari</option>
+    <option value="preorder_30">Pre-Order 30 hari</option>
+  </select>
+</div>
 
           {/* ======================================== */}
           {/* PLACEMENT */}
