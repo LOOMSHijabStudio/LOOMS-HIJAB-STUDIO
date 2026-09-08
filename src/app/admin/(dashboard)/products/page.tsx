@@ -12,6 +12,7 @@ interface ProductRecord {
   sale_price: number | null;
   stock: number;
   status: string;
+  availability?: string;
   image?: string;
   description?: string;
   is_featured: boolean;
@@ -28,23 +29,25 @@ export default function AdminProductsPage() {
 
   // Edit Modal State
   const [editingProduct, setEditingProduct] = useState<ProductRecord | null>(null);
-  const [editForm, setEditForm] = useState<{
-    name: string;
-    price: string;
-    sale_price: string;
-    stock: string;
-    image: string;
-    status: string;
-    description: string;
-  }>({
-    name: "",
-    price: "",
-    sale_price: "",
-    stock: "0",
-    image: "",
-    status: "ACTIVE",
-    description: "",
-  });
+ const [editForm, setEditForm] = useState<{
+  name: string;
+  price: string;
+  sale_price: string;
+  stock: string;
+  image: string;
+  status: string;
+  availability: string;
+  description: string;
+}>({
+  name: "",
+  price: "",
+  sale_price: "",
+  stock: "0",
+  image: "",
+  status: "ACTIVE",
+  availability: "regular",
+  description: "",
+});
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editImagePreview, setEditImagePreview] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -84,6 +87,7 @@ export default function AdminProductsPage() {
       stock: product.stock.toString(),
       image: product.image || "/images/editorial-sand.svg",
       status: product.status || "ACTIVE",
+      availability: product.availability || "regular",
       description: product.description || "",
     });
     setEditImageFile(null);
@@ -138,6 +142,7 @@ export default function AdminProductsPage() {
         sale_price: editForm.sale_price ? Number(editForm.sale_price) : null,
         stock: Number(editForm.stock),
         status: editForm.status,
+        availability: editForm.availability,
         description: editForm.description,
       };
 
@@ -487,6 +492,27 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
+              {/* Availability */}
+<div>
+  <label className="block font-semibold text-gray-700 mb-1">
+    Availability
+  </label>
+  <select
+    value={editForm.availability}
+    onChange={(e) =>
+      setEditForm({ ...editForm, availability: e.target.value })
+    }
+    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:border-looms-teal"
+  >
+    <option value="regular">Regular</option>
+    <option value="preorder_3">Pre-Order 3 hari</option>
+    <option value="preorder_4">Pre-Order 4 hari</option>
+    <option value="preorder_7">Pre-Order 7 hari</option>
+    <option value="preorder_14">Pre-Order 14 hari</option>
+    <option value="preorder_30">Pre-Order 30 hari</option>
+  </select>
+</div>
+              
               {/* Image Upload & Preview */}
               <div>
                 <label className="block font-semibold text-gray-700 mb-1">
