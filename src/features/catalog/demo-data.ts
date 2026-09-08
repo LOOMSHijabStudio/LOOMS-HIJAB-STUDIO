@@ -11,7 +11,7 @@ export type DemoProduct = {
   material: string;
   care: string;
   stock: number;
-  availability: string;
+  availability?: string;
   isNew?: boolean;
   isBestSeller?: boolean;
   variants: string[];
