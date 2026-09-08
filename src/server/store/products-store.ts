@@ -29,6 +29,7 @@ export const localProducts: ManagedProduct[] = demoProducts.map((p, i) => ({
   sale_price: p.salePrice || null,
   stock: p.stock,
   status: "ACTIVE",
+  availability: "REGULAR",
   is_featured: Boolean(p.isBestSeller || p.isNew),
   image: p.image,
   description: p.description,
