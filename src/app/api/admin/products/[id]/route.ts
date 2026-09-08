@@ -71,6 +71,7 @@ export async function PATCH(
         ...(body.sale_price !== undefined && { sale_price: body.sale_price ? Number(body.sale_price) : null }),
         ...(body.stock !== undefined && { stock: Number(body.stock) }),
         ...(body.status !== undefined && { status: body.status }),
+        ...(body.availability !== undefined && { availability: body.availability }),
         ...(body.description !== undefined && { description: body.description }),
         ...(body.image !== undefined && { image: body.image }),
       });
@@ -100,6 +101,7 @@ export async function PATCH(
     if (body.sale_price !== undefined) updateData.sale_price = body.sale_price ? Number(body.sale_price) : null;
     if (body.stock !== undefined) updateData.stock = Number(body.stock);
     if (body.status !== undefined) updateData.status = body.status;
+    if (body.availability !== undefined) updateData.availability = body.availability;
     if (body.description !== undefined) updateData.description = body.description;
 
     const { error: updateError } = await client
