@@ -103,9 +103,11 @@ export function ProductCard({
         </p>
 
         <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-looms-gray">
-  {product.availability === "regular"
+  {product.availability
+  ? product.availability === "regular"
     ? "READY STOCK"
-    : `PRE-ORDER / Ready in ${product.availability?.replace("preorder_", "")} days`}
+    : `PRE-ORDER / Ready in ${product.availability.replace("preorder_", "")} days`
+  : "READY STOCK"}
 </p>
         
         <div className="mt-1 flex items-start justify-between gap-3">
