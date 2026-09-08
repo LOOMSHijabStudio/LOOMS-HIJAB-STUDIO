@@ -45,6 +45,7 @@ type SupabaseProduct = {
   sale_price: number | null;
   stock: number;
   status: string;
+  availability: string;
   description: string | null;
   material: string | null;
   is_featured: boolean | null;
@@ -144,6 +145,7 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         sale_price,
         stock,
         status,
+        availability,
         description,
         material,
         is_featured,
@@ -329,6 +331,8 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       stock: Number(
         product.stock ?? 0
       ),
+      availability:
+        product.availability ?? "regular",
 
       /*
        * Sekarang status section membaca
