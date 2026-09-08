@@ -10,6 +10,7 @@ export interface ManagedProduct {
   sale_price: number | null;
   stock: number;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
+  availability: string;
   is_featured: boolean;
   image: string;
   description: string;
