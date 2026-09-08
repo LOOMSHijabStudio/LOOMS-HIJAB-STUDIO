@@ -123,7 +123,8 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
     return [];
   }
 
-  const client = createSupabaseServiceClient();
+  const client =
+    createSupabaseServiceClient();
 
   /*
    * Ambil produk ACTIVE
@@ -168,7 +169,9 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       `
     )
     .eq("status", "ACTIVE")
-    .order("created_at", { ascending: false });
+    .order("created_at", {
+      ascending: false,
+    });
 
   if (productsError) {
     console.error(
@@ -194,7 +197,9 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         position
       `
     )
-    .order("position", { ascending: true });
+    .order("position", {
+      ascending: true,
+    });
 
   if (placementsError) {
     console.error(
@@ -205,11 +210,11 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
     return [];
   }
 
-  const products = (productsData ??
-    []) as SupabaseProduct[];
+  const products =
+    (productsData ?? []) as SupabaseProduct[];
 
-  const placements = (placementsData ??
-    []) as SupabasePlacement[];
+  const placements =
+    (placementsData ?? []) as SupabasePlacement[];
 
   /*
    * Buat map:
@@ -229,7 +234,11 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
   >();
 
   for (const placement of placements) {
-    if (!placementMap.has(placement.product_id)) {
+    if (
+      !placementMap.has(
+        placement.product_id
+      )
+    ) {
       placementMap.set(
         placement.product_id,
         new Set<string>()
@@ -245,30 +254,48 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
     const images = Array.isArray(
       product.product_images
     )
-      ? [...product.product_images].sort((a, b) => {
-          if (a.is_primary && !b.is_primary) return -1;
-          if (!a.is_primary && b.is_primary) return 1;
+      ? [...product.product_images].sort(
+          (a, b) => {
+            if (
+              a.is_primary &&
+              !b.is_primary
+            ) {
+              return -1;
+            }
 
-          return (
-            (a.position ?? 0) -
-            (b.position ?? 0)
-          );
-        })
-      : [];
+            if (
+              !a.is_primary &&
+              b.is_primary
+            ) {
+              return 1;
+            }
 
-    const activeVariants = Array.isArray(
-      product.product_variants
-    )
-      ? product.product_variants.filter(
-          (variant) =>
-            variant.is_active !== false
+            return (
+              (a.position ?? 0) -
+              (b.position ?? 0)
+            );
+          }
         )
       : [];
 
-    const variantIds: Record<string, string> = {};
+    const activeVariants =
+      Array.isArray(
+        product.product_variants
+      )
+        ? product.product_variants.filter(
+            (variant) =>
+              variant.is_active !== false
+          )
+        : [];
+
+    const variantIds: Record<
+      string,
+      string
+    > = {};
 
     for (const variant of activeVariants) {
-      variantIds[variant.name] = variant.id;
+      variantIds[variant.name] =
+        variant.id;
     }
 
     const productPlacements =
@@ -282,7 +309,9 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       category: getCategoryName(
         product.categories
       ),
-      price: Number(product.price ?? 0),
+      price: Number(
+        product.price ?? 0
+      ),
       salePrice:
         product.sale_price !== null
           ? Number(product.sale_price)
@@ -291,12 +320,15 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         images[0]?.storage_path
       ),
       imageAlt: product.name,
-      description: product.description ?? "",
+      description:
+        product.description ?? "",
       material:
         product.material ??
         "Premium Satin Voile",
       care: "Hand wash cold.",
-      stock: Number(product.stock ?? 0),
+      stock: Number(
+        product.stock ?? 0
+      ),
 
       /*
        * Sekarang status section membaca
@@ -315,9 +347,10 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       isFeatured:
         productPlacements.has("HOME"),
 
-      variants: activeVariants.map(
-        (variant) => variant.name
-      ),
+      variants:
+        activeVariants.map(
+          (variant) => variant.name
+        ),
 
       variantIds,
     };
@@ -339,8 +372,15 @@ function EmptySection({
 }
 
 export default async function HomePage() {
+  /*
+   * PENTING:
+   * getWebsiteAppearance sekarang async,
+   * jadi wajib menggunakan await.
+   *
+   * Data appearance diambil dari Supabase.
+   */
   const appearance =
-    getWebsiteAppearance();
+    await getWebsiteAppearance();
 
   const products =
     await getHomeProducts();
@@ -402,7 +442,7 @@ export default async function HomePage() {
               {appearance.heroEyebrow}
             </p>
 
-            <h1 className="max-w-xl font-serif text-5xl leading-[0.95] text-looms-teal sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-xl whitespace-pre-line font-serif text-5xl leading-[0.95] text-looms-teal sm:text-6xl lg:text-7xl">
               {appearance.heroTitle}
             </h1>
 
@@ -455,7 +495,9 @@ export default async function HomePage() {
 
           {essentialProducts.length > 0 ? (
             <ProductGrid
-              products={essentialProducts}
+              products={
+                essentialProducts
+              }
             />
           ) : (
             <EmptySection
@@ -478,7 +520,9 @@ export default async function HomePage() {
             />
 
             <ProductGrid
-              products={newArrivalProducts}
+              products={
+                newArrivalProducts
+              }
             />
           </div>
         </section>
@@ -540,7 +584,9 @@ export default async function HomePage() {
             />
 
             <ProductGrid
-              products={bestSellerProducts}
+              products={
+                bestSellerProducts
+              }
             />
           </div>
         </section>
@@ -559,7 +605,9 @@ export default async function HomePage() {
             />
 
             <ProductGrid
-              products={homeProducts}
+              products={
+                homeProducts
+              }
             />
           </div>
         </section>
