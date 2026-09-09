@@ -45,7 +45,6 @@ type SupabaseProduct = {
   sale_price: number | null;
   stock: number;
   status: string;
-  availability: string;
   description: string | null;
   material: string | null;
   is_featured: boolean | null;
@@ -145,7 +144,6 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         sale_price,
         stock,
         status,
-        availability,
         description,
         material,
         is_featured,
@@ -219,16 +217,11 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
     (placementsData ?? []) as SupabasePlacement[];
 
   /*
-   * Buat map:
+   * Buat map placement:
    *
    * product ID
    *      ↓
    * placement yang dimiliki
-   *
-   * Contoh:
-   *
-   * produk A → HOME, SHOP
-   * produk B → SHOP, NEW_ARRIVALS
    */
   const placementMap = new Map<
     string,
@@ -331,13 +324,7 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
       stock: Number(
         product.stock ?? 0
       ),
-      availability:
-        product.availability ?? "regular",
 
-      /*
-       * Sekarang status section membaca
-       * product_placements.
-       */
       isNew:
         productPlacements.has(
           "NEW_ARRIVALS"
@@ -376,13 +363,6 @@ function EmptySection({
 }
 
 export default async function HomePage() {
-  /*
-   * PENTING:
-   * getWebsiteAppearance sekarang async,
-   * jadi wajib menggunakan await.
-   *
-   * Data appearance diambil dari Supabase.
-   */
   const appearance =
     await getWebsiteAppearance();
 
@@ -390,31 +370,17 @@ export default async function HomePage() {
     await getHomeProducts();
 
   /*
-   * =========================================================
    * HOME SECTIONS
-   * =========================================================
-   *
-   * Essential:
-   * tetap berdasarkan kategori ESSENTIAL VISCOSE.
    *
    * New Arrivals:
-   * berdasarkan product_placements = NEW_ARRIVALS.
+   * product_placements = NEW_ARRIVALS
    *
    * Best Sellers:
-   * berdasarkan product_placements = BEST_SELLERS.
+   * product_placements = BEST_SELLERS
    *
    * Featured Pieces:
-   * sekarang menjadi placement HOME.
+   * product_placements = HOME
    */
-
-  const essentialProducts =
-    products
-      .filter(
-        (product) =>
-          product.category.toUpperCase() ===
-          "ESSENTIAL VISCOSE"
-      )
-      .slice(0, 4);
 
   const newArrivalProducts =
     products.filter(
@@ -442,6 +408,7 @@ export default async function HomePage() {
       <section className="relative overflow-hidden bg-looms-cream">
         <div className="mx-auto grid max-w-7xl lg:grid-cols-2">
           <div className="flex min-h-[560px] flex-col justify-center px-6 py-16 sm:px-10 lg:px-16">
+
             <p className="mb-5 text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
               {appearance.heroEyebrow}
             </p>
@@ -469,6 +436,7 @@ export default async function HomePage() {
                 OUR STORY
               </Link>
             </div>
+
           </div>
 
           <div className="relative min-h-[420px] lg:min-h-[560px]">
@@ -488,35 +456,12 @@ export default async function HomePage() {
       </section>
 
       {/* =========================================================
-          ESSENTIAL EDIT
-      ========================================================= */}
-      <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
-        <div className="mx-auto max-w-7xl">
-          <SectionHeading
-            eyebrow="THE ESSENTIAL EDIT"
-            title="Considered essentials."
-          />
-
-          {essentialProducts.length > 0 ? (
-            <ProductGrid
-              products={
-                essentialProducts
-              }
-            />
-          ) : (
-            <EmptySection
-              text="No essential products available."
-            />
-          )}
-        </div>
-      </section>
-
-      {/* =========================================================
           NEW ARRIVALS
       ========================================================= */}
       {newArrivalProducts.length > 0 && (
         <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
+
             <SectionHeading
               eyebrow="JUST IN"
               title="New arrivals."
@@ -528,6 +473,7 @@ export default async function HomePage() {
                 newArrivalProducts
               }
             />
+
           </div>
         </section>
       )}
@@ -537,6 +483,7 @@ export default async function HomePage() {
       ========================================================= */}
       <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto grid max-w-7xl overflow-hidden bg-looms-sand lg:grid-cols-2">
+
           <div className="relative min-h-[420px]">
             <Image
               src={
@@ -551,6 +498,7 @@ export default async function HomePage() {
           </div>
 
           <div className="flex flex-col justify-center p-8 sm:p-12 lg:p-16">
+
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
               {appearance.editorialEyebrow}
             </p>
@@ -571,6 +519,7 @@ export default async function HomePage() {
                 EXPLORE THE EDIT
               </Link>
             </div>
+
           </div>
         </div>
       </section>
@@ -581,6 +530,7 @@ export default async function HomePage() {
       {bestSellerProducts.length > 0 && (
         <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
+
             <SectionHeading
               eyebrow="WORN & LOVED"
               title="Best sellers."
@@ -592,6 +542,7 @@ export default async function HomePage() {
                 bestSellerProducts
               }
             />
+
           </div>
         </section>
       )}
@@ -602,6 +553,7 @@ export default async function HomePage() {
       {homeProducts.length > 0 && (
         <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
+
             <SectionHeading
               eyebrow="LOOMS EDIT"
               title="Featured pieces."
@@ -613,6 +565,7 @@ export default async function HomePage() {
                 homeProducts
               }
             />
+
           </div>
         </section>
       )}
@@ -622,6 +575,7 @@ export default async function HomePage() {
       ========================================================= */}
       <section className="bg-looms-teal px-6 py-20 text-white sm:px-10 lg:px-16">
         <div className="mx-auto max-w-4xl text-center">
+
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">
             THE LOOMS STORY
           </p>
@@ -642,6 +596,7 @@ export default async function HomePage() {
               READ OUR STORY
             </Link>
           </div>
+
         </div>
       </section>
 
@@ -650,6 +605,7 @@ export default async function HomePage() {
       ========================================================= */}
       <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto max-w-7xl text-center">
+
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
             FOLLOW ALONG
           </p>
@@ -671,6 +627,7 @@ export default async function HomePage() {
               GET IN TOUCH
             </Link>
           </div>
+
         </div>
       </section>
 
