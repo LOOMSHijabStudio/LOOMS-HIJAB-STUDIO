@@ -34,6 +34,7 @@ type SupabaseProduct = {
   sale_price: number | null;
   stock: number;
   status: string;
+  availability: string;
   description: string | null;
   material: string | null;
   is_featured: boolean | null;
@@ -67,6 +68,7 @@ type BestSellerProduct = {
   material: string;
   care: string;
   stock: number;
+  availability: string;
   isNew?: boolean;
   isBestSeller?: boolean;
   isFeatured?: boolean;
@@ -123,11 +125,6 @@ async function getBestSellerProducts(): Promise<
   const client =
     createSupabaseServiceClient();
 
-  /*
-   * =========================================================
-   * 1. Ambil semua produk ACTIVE
-   * =========================================================
-   */
   const {
     data: productsData,
     error: productsError,
@@ -143,6 +140,7 @@ async function getBestSellerProducts(): Promise<
         sale_price,
         stock,
         status,
+        availability,
         description,
         material,
         is_featured,
@@ -181,11 +179,6 @@ async function getBestSellerProducts(): Promise<
     return [];
   }
 
-  /*
-   * =========================================================
-   * 2. Ambil placement BEST_SELLERS
-   * =========================================================
-   */
   const {
     data: placementsData,
     error: placementsError,
@@ -218,11 +211,6 @@ async function getBestSellerProducts(): Promise<
   const placements =
     (placementsData ?? []) as SupabasePlacement[];
 
-  /*
-   * =========================================================
-   * 3. Simpan posisi produk
-   * =========================================================
-   */
   const positionMap = new Map<
     string,
     number
@@ -237,11 +225,6 @@ async function getBestSellerProducts(): Promise<
     }
   );
 
-  /*
-   * =========================================================
-   * 4. Hanya produk yang masuk BEST_SELLERS
-   * =========================================================
-   */
   const bestSellerProducts =
     products
       .filter((product) =>
@@ -257,11 +240,6 @@ async function getBestSellerProducts(): Promise<
         return positionA - positionB;
       });
 
-  /*
-   * =========================================================
-   * 5. Ubah ke format ProductGrid
-   * =========================================================
-   */
   return bestSellerProducts.map(
     (product) => {
       const images = Array.isArray(
@@ -352,6 +330,10 @@ async function getBestSellerProducts(): Promise<
           product.stock ?? 0
         ),
 
+        availability:
+          product.availability ??
+          "regular",
+
         isNew:
           product.is_new_arrival ===
           true,
@@ -381,9 +363,7 @@ export default async function BestSellersPage() {
   return (
     <main className="min-h-screen bg-white">
 
-      {/* =========================================================
-          HERO
-      ========================================================= */}
+      {/* HERO */}
       <section className="border-b border-neutral-200">
         <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 md:py-24">
 
@@ -403,9 +383,7 @@ export default async function BestSellersPage() {
         </div>
       </section>
 
-      {/* =========================================================
-          PRODUCTS
-      ========================================================= */}
+      {/* PRODUCTS */}
       <section className="mx-auto max-w-7xl px-6 py-12 md:px-10 md:py-16">
 
         {products.length === 0 ? (
@@ -433,7 +411,7 @@ export default async function BestSellersPage() {
           </div>
         ) : (
           <>
-            {/* HEADER */}
+
             <div className="mb-10 flex items-end justify-between">
 
               <div>
@@ -455,10 +433,10 @@ export default async function BestSellersPage() {
 
             </div>
 
-            {/* PRODUCTS */}
             <ProductGrid
               products={products}
             />
+
           </>
         )}
 
