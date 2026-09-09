@@ -14,6 +14,8 @@ export function ProductCard({
 }: {
   product: DemoProduct;
 }) {
+  console.log("PRODUCT AVAILABILITY:", product.name, product.availability);
+  
   const { addItem } = useCart();
   const { isWishlisted, toggleWishlist } = useWishlist();
 
