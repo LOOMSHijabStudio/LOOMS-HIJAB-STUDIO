@@ -53,33 +53,43 @@ export function Footer() {
           </h2>
 
           <div className="mt-5 flex flex-col gap-3 text-sm text-looms-cream/70">
-            <Link
-              href="/contact#shipping"
+
+            {/* SHIPPING → WHATSAPP */}
+            <a
+              href="https://wa.me/6281558066629"
+              target="_blank"
+              rel="noopener noreferrer"
               className="transition hover:text-looms-cream"
             >
               Shipping
-            </Link>
+            </a>
 
-            <Link
-              href="/contact#returns"
+            {/* RETURNS → WHATSAPP */}
+            <a
+              href="https://wa.me/6281558066629"
+              target="_blank"
+              rel="noopener noreferrer"
               className="transition hover:text-looms-cream"
             >
               Returns
-            </Link>
+            </a>
 
-            <Link
-              href="/contact#privacy"
+            {/* PRIVACY → EMAIL */}
+            <a
+              href="mailto:societyoflooms@gmail.com"
               className="transition hover:text-looms-cream"
             >
               Privacy Policy
-            </Link>
+            </a>
 
-            <Link
-              href="/contact#terms"
+            {/* TERMS → EMAIL */}
+            <a
+              href="mailto:societyoflooms@gmail.com"
               className="transition hover:text-looms-cream"
             >
               Terms &amp; Conditions
-            </Link>
+            </a>
+
           </div>
         </div>
 
