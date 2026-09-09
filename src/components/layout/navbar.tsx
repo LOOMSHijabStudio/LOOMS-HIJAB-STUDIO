@@ -178,7 +178,7 @@ export function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center justify-between border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
               >
-                <span>WISHLIST</span>
+                <span>Wishlist</span>
 
                 {wishlist.length > 0 && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-looms-teal px-1 text-[9px] text-looms-cream">
