@@ -45,6 +45,7 @@ type SupabaseProduct = {
   sale_price: number | null;
   stock: number;
   status: string;
+  availability: string;
   description: string | null;
   material: string | null;
   is_featured: boolean | null;
@@ -72,6 +73,7 @@ type HomeProduct = {
   material: string;
   care: string;
   stock: number;
+  availability: string;
   isNew?: boolean;
   isBestSeller?: boolean;
   isFeatured?: boolean;
@@ -126,9 +128,6 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
   const client =
     createSupabaseServiceClient();
 
-  /*
-   * Ambil produk ACTIVE
-   */
   const {
     data: productsData,
     error: productsError,
@@ -144,6 +143,7 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         sale_price,
         stock,
         status,
+        availability,
         description,
         material,
         is_featured,
@@ -182,9 +182,6 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
     return [];
   }
 
-  /*
-   * Ambil placement produk
-   */
   const {
     data: placementsData,
     error: placementsError,
@@ -216,13 +213,6 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
   const placements =
     (placementsData ?? []) as SupabasePlacement[];
 
-  /*
-   * Buat map placement:
-   *
-   * product ID
-   *      ↓
-   * placement yang dimiliki
-   */
   const placementMap = new Map<
     string,
     Set<string>
@@ -325,6 +315,10 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         product.stock ?? 0
       ),
 
+      availability:
+        product.availability ??
+        "regular",
+
       isNew:
         productPlacements.has(
           "NEW_ARRIVALS"
@@ -336,7 +330,9 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         ),
 
       isFeatured:
-        productPlacements.has("HOME"),
+        productPlacements.has(
+          "HOME"
+        ),
 
       variants:
         activeVariants.map(
@@ -348,39 +344,12 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
   });
 }
 
-function EmptySection({
-  text,
-}: {
-  text: string;
-}) {
-  return (
-    <div className="py-10 text-center">
-      <p className="text-sm text-looms-gray">
-        {text}
-      </p>
-    </div>
-  );
-}
-
 export default async function HomePage() {
   const appearance =
     await getWebsiteAppearance();
 
   const products =
     await getHomeProducts();
-
-  /*
-   * HOME SECTIONS
-   *
-   * New Arrivals:
-   * product_placements = NEW_ARRIVALS
-   *
-   * Best Sellers:
-   * product_placements = BEST_SELLERS
-   *
-   * Featured Pieces:
-   * product_placements = HOME
-   */
 
   const newArrivalProducts =
     products.filter(
@@ -402,11 +371,11 @@ export default async function HomePage() {
 
   return (
     <main>
-      {/* =========================================================
-          HERO
-      ========================================================= */}
+
+      {/* HERO */}
       <section className="relative overflow-hidden bg-looms-cream">
         <div className="mx-auto grid max-w-7xl lg:grid-cols-2">
+
           <div className="flex min-h-[560px] flex-col justify-center px-6 py-16 sm:px-10 lg:px-16">
 
             <p className="mb-5 text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
@@ -452,12 +421,11 @@ export default async function HomePage() {
               sizes="(max-width: 1024px) 100vw, 50vw"
             />
           </div>
+
         </div>
       </section>
 
-      {/* =========================================================
-          NEW ARRIVALS
-      ========================================================= */}
+      {/* NEW ARRIVALS */}
       {newArrivalProducts.length > 0 && (
         <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
@@ -478,9 +446,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* =========================================================
-          EDITORIAL
-      ========================================================= */}
+      {/* EDITORIAL */}
       <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto grid max-w-7xl overflow-hidden bg-looms-sand lg:grid-cols-2">
 
@@ -524,9 +490,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* =========================================================
-          BEST SELLERS
-      ========================================================= */}
+      {/* BEST SELLERS */}
       {bestSellerProducts.length > 0 && (
         <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
@@ -547,9 +511,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* =========================================================
-          HOME / FEATURED
-      ========================================================= */}
+      {/* FEATURED */}
       {homeProducts.length > 0 && (
         <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
           <div className="mx-auto max-w-7xl">
@@ -570,9 +532,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* =========================================================
-          STORY
-      ========================================================= */}
+      {/* STORY */}
       <section className="bg-looms-teal px-6 py-20 text-white sm:px-10 lg:px-16">
         <div className="mx-auto max-w-4xl text-center">
 
@@ -600,9 +560,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* =========================================================
-          INSTAGRAM / SOCIAL
-      ========================================================= */}
+      {/* SOCIAL */}
       <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto max-w-7xl text-center">
 
@@ -631,9 +589,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* =========================================================
-          NEWSLETTER
-      ========================================================= */}
       <Newsletter />
     </main>
   );
