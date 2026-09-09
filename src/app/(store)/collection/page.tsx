@@ -26,12 +26,6 @@ type SupabaseCategory = {
   slug: string;
 };
 
-type SupabasePlacement = {
-  product_id: string;
-  placement: string;
-  position: number | null;
-};
-
 type SupabaseProduct = {
   id: string;
   name: string;
@@ -41,6 +35,7 @@ type SupabaseProduct = {
   sale_price: number | null;
   stock: number;
   status: string;
+  availability: string;
   description: string | null;
   material: string | null;
   is_featured: boolean | null;
@@ -53,6 +48,12 @@ type SupabaseProduct = {
     | null;
   product_images: SupabaseImage[] | null;
   product_variants: SupabaseVariant[] | null;
+};
+
+type SupabasePlacement = {
+  product_id: string;
+  placement: string;
+  position: number | null;
 };
 
 type CollectionProduct = {
@@ -68,6 +69,7 @@ type CollectionProduct = {
   material: string;
   care: string;
   stock: number;
+  availability: string;
   isNew?: boolean;
   isBestSeller?: boolean;
   isFeatured?: boolean;
@@ -124,11 +126,6 @@ async function getCollectionProducts(): Promise<
   const client =
     createSupabaseServiceClient();
 
-  /*
-   * =========================================================
-   * 1. Ambil produk ACTIVE
-   * =========================================================
-   */
   const {
     data: productsData,
     error: productsError,
@@ -144,6 +141,7 @@ async function getCollectionProducts(): Promise<
         sale_price,
         stock,
         status,
+        availability,
         description,
         material,
         is_featured,
@@ -182,19 +180,6 @@ async function getCollectionProducts(): Promise<
     return [];
   }
 
-  /*
-   * =========================================================
-   * 2. Ambil placement COLLECTION
-   * =========================================================
-   *
-   * Admin Collection menyimpan relasi di:
-   *
-   * product_placements
-   *
-   * dengan:
-   *
-   * placement = COLLECTION
-   */
   const {
     data: placementsData,
     error: placementsError,
@@ -227,11 +212,6 @@ async function getCollectionProducts(): Promise<
   const placements =
     (placementsData ?? []) as SupabasePlacement[];
 
-  /*
-   * =========================================================
-   * 3. Urutan berdasarkan posisi Collection
-   * =========================================================
-   */
   const positionMap = new Map<
     string,
     number
@@ -246,11 +226,6 @@ async function getCollectionProducts(): Promise<
     }
   );
 
-  /*
-   * =========================================================
-   * 4. Hanya produk yang punya placement COLLECTION
-   * =========================================================
-   */
   const collectionProducts =
     products
       .filter((product) =>
@@ -266,11 +241,6 @@ async function getCollectionProducts(): Promise<
         return positionA - positionB;
       });
 
-  /*
-   * =========================================================
-   * 5. Ubah ke format ProductGrid
-   * =========================================================
-   */
   return collectionProducts.map(
     (product) => {
       const images = Array.isArray(
@@ -361,6 +331,10 @@ async function getCollectionProducts(): Promise<
           product.stock ?? 0
         ),
 
+        availability:
+          product.availability ??
+          "regular",
+
         isNew:
           product.is_new_arrival ===
           true,
@@ -392,9 +366,7 @@ export default async function CollectionPage() {
   return (
     <main className="min-h-screen bg-white">
 
-      {/* ===================================================== */}
       {/* HEADER */}
-      {/* ===================================================== */}
       <section className="border-b border-gray-200">
         <div className="mx-auto max-w-7xl px-6 py-20 sm:px-10 lg:px-16 lg:py-24">
 
@@ -416,15 +388,14 @@ export default async function CollectionPage() {
         </div>
       </section>
 
-      {/* ===================================================== */}
       {/* PRODUCTS */}
-      {/* ===================================================== */}
       <section className="px-6 py-20 sm:px-10 lg:px-16">
         <div className="mx-auto max-w-7xl">
 
           {products.length > 0 ? (
             <>
               <div className="mb-10 flex items-end justify-between gap-4">
+
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-looms-gray">
                     COLLECTION
@@ -441,6 +412,7 @@ export default async function CollectionPage() {
                     ? "item"
                     : "items"}
                 </p>
+
               </div>
 
               <ProductGrid
