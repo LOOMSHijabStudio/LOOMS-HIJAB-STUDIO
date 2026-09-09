@@ -1,59 +1,393 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
-type Product = {
+import { ProductGrid } from "@/components/catalog/product-grid";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/server/auth/session";
+
+export const dynamic = "force-dynamic";
+
+type SupabaseImage = {
+  storage_path: string;
+  is_primary: boolean | null;
+  position: number | null;
+};
+
+type SupabaseVariant = {
+  id: string;
+  name: string;
+  price: number | null;
+  stock: number | null;
+  is_active: boolean | null;
+};
+
+type SupabaseCategory = {
+  name: string;
+  slug: string;
+};
+
+type SupabaseProduct = {
   id: string;
   name: string;
   slug: string;
+  sku: string | null;
   price: number;
-  sale_price?: number | null;
-  image?: string | null;
+  sale_price: number | null;
+  stock: number;
+  status: string;
+  description: string | null;
+  material: string | null;
+  is_featured: boolean | null;
+  is_new_arrival: boolean | null;
+  is_best_seller: boolean | null;
+  created_at: string;
+  categories:
+    | SupabaseCategory
+    | SupabaseCategory[]
+    | null;
+  product_images: SupabaseImage[] | null;
+  product_variants: SupabaseVariant[] | null;
 };
 
-export default function NewArrivalsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+type SupabasePlacement = {
+  product_id: string;
+  placement: string;
+  position: number | null;
+};
 
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const res = await fetch(
-          "/api/admin/placements?placement=NEW_ARRIVALS",
-          {
-            cache: "no-store",
-          }
-        );
+type NewArrivalProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  price: number;
+  salePrice?: number;
+  image: string;
+  imageAlt: string;
+  description: string;
+  material: string;
+  care: string;
+  stock: number;
+  isNew?: boolean;
+  isBestSeller?: boolean;
+  isFeatured?: boolean;
+  variants: string[];
+  variantIds: Record<string, string>;
+};
 
-        const data = await res.json();
+function getPublicImageUrl(
+  storagePath: string | null | undefined
+) {
+  if (!storagePath) {
+    return "/images/editorial-mocha.svg";
+  }
 
-        if (data?.products) {
-          setProducts(data.products);
-        }
-      } catch (error) {
-        console.error("Gagal mengambil produk New Arrivals:", error);
-      } finally {
-        setLoading(false);
-      }
+  if (
+    storagePath.startsWith("http://") ||
+    storagePath.startsWith("https://") ||
+    storagePath.startsWith("/")
+  ) {
+    return storagePath;
+  }
+
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  if (!supabaseUrl) {
+    return "/images/editorial-mocha.svg";
+  }
+
+  return `${supabaseUrl}/storage/v1/object/public/product-images/${storagePath}`;
+}
+
+function getCategoryName(
+  category:
+    | SupabaseCategory
+    | SupabaseCategory[]
+    | null
+    | undefined
+) {
+  if (Array.isArray(category)) {
+    return category[0]?.name ?? "LOOMS";
+  }
+
+  return category?.name ?? "LOOMS";
+}
+
+async function getNewArrivalProducts(): Promise<
+  NewArrivalProduct[]
+> {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  const client =
+    createSupabaseServiceClient();
+
+  /*
+   * =========================================================
+   * 1. Ambil semua produk ACTIVE
+   * =========================================================
+   */
+  const {
+    data: productsData,
+    error: productsError,
+  } = await client
+    .from("products")
+    .select(
+      `
+        id,
+        name,
+        slug,
+        sku,
+        price,
+        sale_price,
+        stock,
+        status,
+        description,
+        material,
+        is_featured,
+        is_new_arrival,
+        is_best_seller,
+        created_at,
+        categories (
+          name,
+          slug
+        ),
+        product_images (
+          storage_path,
+          is_primary,
+          position
+        ),
+        product_variants (
+          id,
+          name,
+          price,
+          stock,
+          is_active
+        )
+      `
+    )
+    .eq("status", "ACTIVE")
+    .order("created_at", {
+      ascending: false,
+    });
+
+  if (productsError) {
+    console.error(
+      "Failed to load New Arrivals products:",
+      productsError
+    );
+
+    return [];
+  }
+
+  /*
+   * =========================================================
+   * 2. Ambil placement NEW_ARRIVALS
+   * =========================================================
+   */
+  const {
+    data: placementsData,
+    error: placementsError,
+  } = await client
+    .from("product_placements")
+    .select(
+      `
+        product_id,
+        placement,
+        position
+      `
+    )
+    .eq("placement", "NEW_ARRIVALS")
+    .order("position", {
+      ascending: true,
+    });
+
+  if (placementsError) {
+    console.error(
+      "Failed to load New Arrivals placements:",
+      placementsError
+    );
+
+    return [];
+  }
+
+  const products =
+    (productsData ?? []) as SupabaseProduct[];
+
+  const placements =
+    (placementsData ?? []) as SupabasePlacement[];
+
+  /*
+   * =========================================================
+   * 3. Simpan posisi produk
+   * =========================================================
+   */
+  const positionMap = new Map<
+    string,
+    number
+  >();
+
+  placements.forEach(
+    (placement, index) => {
+      positionMap.set(
+        placement.product_id,
+        placement.position ?? index
+      );
     }
+  );
 
-    loadProducts();
-  }, []);
+  /*
+   * =========================================================
+   * 4. Hanya produk yang masuk NEW_ARRIVALS
+   * =========================================================
+   */
+  const newArrivalProducts =
+    products
+      .filter((product) =>
+        positionMap.has(product.id)
+      )
+      .sort((a, b) => {
+        const positionA =
+          positionMap.get(a.id) ?? 0;
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("id-ID", {
-      style: "currency",
-      currency: "IDR",
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
+        const positionB =
+          positionMap.get(b.id) ?? 0;
+
+        return positionA - positionB;
+      });
+
+  /*
+   * =========================================================
+   * 5. Ubah format ke ProductGrid
+   * =========================================================
+   */
+  return newArrivalProducts.map(
+    (product) => {
+      const images = Array.isArray(
+        product.product_images
+      )
+        ? [...product.product_images].sort(
+            (a, b) => {
+              if (
+                a.is_primary &&
+                !b.is_primary
+              ) {
+                return -1;
+              }
+
+              if (
+                !a.is_primary &&
+                b.is_primary
+              ) {
+                return 1;
+              }
+
+              return (
+                (a.position ?? 0) -
+                (b.position ?? 0)
+              );
+            }
+          )
+        : [];
+
+      const activeVariants =
+        Array.isArray(
+          product.product_variants
+        )
+          ? product.product_variants.filter(
+              (variant) =>
+                variant.is_active !== false
+            )
+          : [];
+
+      const variantIds: Record<
+        string,
+        string
+      > = {};
+
+      for (const variant of activeVariants) {
+        variantIds[variant.name] =
+          variant.id;
+      }
+
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+
+        category:
+          getCategoryName(
+            product.categories
+          ),
+
+        price: Number(
+          product.price ?? 0
+        ),
+
+        salePrice:
+          product.sale_price !== null
+            ? Number(
+                product.sale_price
+              )
+            : undefined,
+
+        image:
+          getPublicImageUrl(
+            images[0]?.storage_path
+          ),
+
+        imageAlt: product.name,
+
+        description:
+          product.description ?? "",
+
+        material:
+          product.material ??
+          "Premium Satin Voile",
+
+        care: "Hand wash cold.",
+
+        stock: Number(
+          product.stock ?? 0
+        ),
+
+        isNew: true,
+
+        isBestSeller:
+          product.is_best_seller ===
+          true,
+
+        isFeatured:
+          product.is_featured ===
+          true,
+
+        variants:
+          activeVariants.map(
+            (variant) =>
+              variant.name
+          ),
+
+        variantIds,
+      };
+    }
+  );
+}
+
+export default async function NewArrivalsPage() {
+  const products =
+    await getNewArrivalProducts();
 
   return (
     <main className="min-h-screen bg-white">
-      {/* HERO */}
+
+      {/* =========================================================
+          HERO
+      ========================================================= */}
       <section className="border-b border-neutral-200">
         <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 md:py-24">
+
           <p className="mb-4 text-xs font-medium uppercase tracking-[0.3em] text-neutral-500">
             LOOMS Hijab Studio
           </p>
@@ -63,33 +397,32 @@ export default function NewArrivalsPage() {
           </h1>
 
           <p className="mt-5 max-w-xl text-sm leading-7 text-neutral-500 md:text-base">
-            Discover the latest pieces from LOOMS, thoughtfully designed for
+            Discover the latest pieces from
+            LOOMS, thoughtfully designed for
             your everyday style.
           </p>
+
         </div>
       </section>
 
-      {/* PRODUCTS */}
+      {/* =========================================================
+          PRODUCTS
+      ========================================================= */}
       <section className="mx-auto max-w-7xl px-6 py-12 md:px-10 md:py-16">
-        {loading ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((item) => (
-              <div key={item} className="animate-pulse">
-                <div className="aspect-[3/4] bg-neutral-100" />
-                <div className="mt-4 h-4 w-2/3 bg-neutral-100" />
-                <div className="mt-2 h-4 w-1/3 bg-neutral-100" />
-              </div>
-            ))}
-          </div>
-        ) : products.length === 0 ? (
+
+        {products.length === 0 ? (
           <div className="flex min-h-[350px] flex-col items-center justify-center text-center">
+
             <h2 className="text-xl font-light text-neutral-900">
               Belum ada produk baru
             </h2>
 
             <p className="mt-3 max-w-md text-sm leading-6 text-neutral-500">
-              Belum ada produk yang ditempatkan di New Arrivals.
-              Tambahkan produk melalui Admin → Produk dan pilih New Arrivals.
+              Belum ada produk yang
+              ditempatkan di New Arrivals.
+              Tambahkan produk melalui
+              Admin → Produk dan pilih
+              New Arrivals.
             </p>
 
             <Link
@@ -98,10 +431,14 @@ export default function NewArrivalsPage() {
             >
               Explore Shop
             </Link>
+
           </div>
         ) : (
           <>
+
+            {/* HEADER PRODUCT */}
             <div className="mb-10 flex items-end justify-between">
+
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">
                   Just arrived
@@ -114,66 +451,21 @@ export default function NewArrivalsPage() {
 
               <p className="text-xs text-neutral-400">
                 {products.length}{" "}
-                {products.length === 1 ? "product" : "products"}
+                {products.length === 1
+                  ? "product"
+                  : "products"}
               </p>
+
             </div>
 
-            <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((product) => {
-                const price = product.sale_price ?? product.price;
+            {/* PRODUCT GRID */}
+            <ProductGrid
+              products={products}
+            />
 
-                const hasSale =
-                  product.sale_price !== null &&
-                  product.sale_price !== undefined &&
-                  product.sale_price < product.price;
-
-                return (
-                  <Link
-                    key={product.id}
-                    href={`/shop/${product.slug}`}
-                    className="group"
-                  >
-                    <div className="relative aspect-[3/4] overflow-hidden bg-neutral-100">
-                      {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-widest text-neutral-400">
-                          LOOMS
-                        </div>
-                      )}
-
-                      <span className="absolute left-3 top-3 bg-white px-3 py-1 text-[10px] uppercase tracking-widest text-neutral-900">
-                        New
-                      </span>
-                    </div>
-
-                    <div className="mt-4">
-                      <h3 className="text-sm font-normal text-neutral-900 transition group-hover:text-neutral-500">
-                        {product.name}
-                      </h3>
-
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-sm text-neutral-900">
-                          {formatPrice(price)}
-                        </span>
-
-                        {hasSale && (
-                          <span className="text-xs text-neutral-400 line-through">
-                            {formatPrice(product.price)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
           </>
         )}
+
       </section>
     </main>
   );
