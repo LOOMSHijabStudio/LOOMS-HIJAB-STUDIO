@@ -5,19 +5,85 @@ import { createOrder } from "@/server/checkout/order";
 
 export const dynamic = "force-dynamic";
 
-function createRequestHash(input: unknown): string {
+type JsonObject = Record<string, unknown>;
+
+function isJsonObject(
+  value: unknown
+): value is JsonObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function getString(
+  object: JsonObject,
+  key: string
+): string {
+  const value = object[key];
+
+  return typeof value === "string"
+    ? value.trim()
+    : "";
+}
+
+function getOptionalString(
+  object: JsonObject,
+  key: string
+): string | undefined {
+  const value = object[key];
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const cleaned = value.trim();
+
+  return cleaned || undefined;
+}
+
+function getPositiveInteger(
+  object: JsonObject,
+  key: string
+): number | null {
+  const value = object[key];
+
+  const numberValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (
+    !Number.isInteger(numberValue) ||
+    numberValue < 1
+  ) {
+    return null;
+  }
+
+  return numberValue;
+}
+
+function createRequestHash(
+  input: unknown
+): string {
   return createHash("sha256")
     .update(JSON.stringify(input))
     .digest("hex");
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
   try {
     /*
      * ==========================================
-     * 1. BACA REQUEST JSON
+     * 1. READ REQUEST
      * ==========================================
      */
+
     let body: unknown;
 
     try {
@@ -26,7 +92,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid checkout request.",
+          error:
+            "Invalid checkout request.",
         },
         {
           status: 400,
@@ -34,20 +101,12 @@ export async function POST(request: Request) {
       );
     }
 
-    /*
-     * ==========================================
-     * 2. VALIDASI DASAR
-     * ==========================================
-     */
-
-    if (
-      !body ||
-      typeof body !== "object"
-    ) {
+    if (!isJsonObject(body)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid checkout data.",
+          error:
+            "Invalid checkout data.",
         },
         {
           status: 400,
@@ -55,32 +114,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const data = body as Record<string, any>;
+    /*
+     * ==========================================
+     * 2. ROOT DATA
+     * ==========================================
+     */
 
     const idempotencyKey =
-      typeof data.idempotencyKey === "string"
-        ? data.idempotencyKey.trim()
-        : "";
+      getString(
+        body,
+        "idempotencyKey"
+      );
 
-    const items = Array.isArray(data.items)
-      ? data.items
-      : [];
+    const rawItems = body.items;
 
-    const customer =
-      data.customer &&
-      typeof data.customer === "object"
-        ? data.customer
-        : {};
+    const rawCustomer = body.customer;
 
-    const address =
-      data.address &&
-      typeof data.address === "object"
-        ? data.address
-        : {};
+    const rawAddress = body.address;
 
     /*
      * ==========================================
-     * 3. CEK FIELD WAJIB
+     * 3. BASIC VALIDATION
      * ==========================================
      */
 
@@ -88,7 +142,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Checkout key is required.",
+          error:
+            "Checkout key is required.",
         },
         {
           status: 400,
@@ -96,7 +151,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!items.length) {
+    if (!Array.isArray(rawItems)) {
       return NextResponse.json(
         {
           success: false,
@@ -108,14 +163,11 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof customer.fullName !== "string" ||
-      !customer.fullName.trim()
-    ) {
+    if (rawItems.length === 0) {
       return NextResponse.json(
         {
           success: false,
-          error: "Customer name is required.",
+          error: "Cart is empty.",
         },
         {
           status: 400,
@@ -123,10 +175,67 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof customer.whatsappNumber !== "string" ||
-      !customer.whatsappNumber.trim()
-    ) {
+    if (!isJsonObject(rawCustomer)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Customer information is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (!isJsonObject(rawAddress)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Shipping address is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    /*
+     * ==========================================
+     * 4. CUSTOMER
+     * ==========================================
+     */
+
+    const fullName = getString(
+      rawCustomer,
+      "fullName"
+    );
+
+    const whatsappNumber = getString(
+      rawCustomer,
+      "whatsappNumber"
+    );
+
+    const email = getOptionalString(
+      rawCustomer,
+      "email"
+    );
+
+    if (!fullName) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Customer name is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (!whatsappNumber) {
       return NextResponse.json(
         {
           success: false,
@@ -139,14 +248,48 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof address.province !== "string" ||
-      !address.province.trim()
-    ) {
+    /*
+     * ==========================================
+     * 5. ADDRESS
+     * ==========================================
+     */
+
+    const province = getString(
+      rawAddress,
+      "province"
+    );
+
+    const city = getString(
+      rawAddress,
+      "city"
+    );
+
+    const district = getString(
+      rawAddress,
+      "district"
+    );
+
+    const postalCode = getString(
+      rawAddress,
+      "postalCode"
+    );
+
+    const fullAddress = getString(
+      rawAddress,
+      "fullAddress"
+    );
+
+    const notes = getOptionalString(
+      rawAddress,
+      "notes"
+    );
+
+    if (!province) {
       return NextResponse.json(
         {
           success: false,
-          error: "Province is required.",
+          error:
+            "Province is required.",
         },
         {
           status: 400,
@@ -154,14 +297,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof address.city !== "string" ||
-      !address.city.trim()
-    ) {
+    if (!city) {
       return NextResponse.json(
         {
           success: false,
-          error: "City is required.",
+          error:
+            "City is required.",
         },
         {
           status: 400,
@@ -169,14 +310,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof address.district !== "string" ||
-      !address.district.trim()
-    ) {
+    if (!district) {
       return NextResponse.json(
         {
           success: false,
-          error: "District is required.",
+          error:
+            "District is required.",
         },
         {
           status: 400,
@@ -184,14 +323,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof address.postalCode !== "string" ||
-      !address.postalCode.trim()
-    ) {
+    if (!postalCode) {
       return NextResponse.json(
         {
           success: false,
-          error: "Postal code is required.",
+          error:
+            "Postal code is required.",
         },
         {
           status: 400,
@@ -199,14 +336,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      typeof address.fullAddress !== "string" ||
-      !address.fullAddress.trim()
-    ) {
+    if (!fullAddress) {
       return NextResponse.json(
         {
           success: false,
-          error: "Full address is required.",
+          error:
+            "Full address is required.",
         },
         {
           status: 400,
@@ -216,19 +351,23 @@ export async function POST(request: Request) {
 
     /*
      * ==========================================
-     * 4. CEK SETIAP ITEM
+     * 6. NORMALIZE ITEMS
      * ==========================================
      */
 
-    for (const item of items) {
-      if (
-        !item ||
-        typeof item !== "object"
-      ) {
+    const normalizedItems: Array<{
+      productId: string;
+      variantId?: string;
+      quantity: number;
+    }> = [];
+
+    for (const rawItem of rawItems) {
+      if (!isJsonObject(rawItem)) {
         return NextResponse.json(
           {
             success: false,
-            error: "Invalid cart item.",
+            error:
+              "Invalid cart item.",
           },
           {
             status: 400,
@@ -236,10 +375,24 @@ export async function POST(request: Request) {
         );
       }
 
-      if (
-        typeof item.productId !== "string" ||
-        !item.productId.trim()
-      ) {
+      const productId = getString(
+        rawItem,
+        "productId"
+      );
+
+      const variantId =
+        getOptionalString(
+          rawItem,
+          "variantId"
+        );
+
+      const quantity =
+        getPositiveInteger(
+          rawItem,
+          "quantity"
+        );
+
+      if (!productId) {
         return NextResponse.json(
           {
             success: false,
@@ -252,14 +405,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const quantity = Number(
-        item.quantity
-      );
-
-      if (
-        !Number.isInteger(quantity) ||
-        quantity < 1
-      ) {
+      if (quantity === null) {
         return NextResponse.json(
           {
             success: false,
@@ -272,103 +418,56 @@ export async function POST(request: Request) {
         );
       }
 
-      if (
-        item.variantId !== undefined &&
-        item.variantId !== null &&
-        item.variantId !== "" &&
-        typeof item.variantId !== "string"
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Invalid variant ID.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
+      normalizedItems.push({
+        productId,
+        ...(variantId
+          ? { variantId }
+          : {}),
+        quantity,
+      });
     }
 
     /*
      * ==========================================
-     * 5. REQUEST HASH
-     * ==========================================
-     */
-
-    const requestHash =
-      createRequestHash(data);
-
-    /*
-     * ==========================================
-     * 6. SIAPKAN INPUT UNTUK createOrder()
+     * 7. CREATE CLEAN CHECKOUT INPUT
      * ==========================================
      */
 
     const checkoutInput = {
       idempotencyKey,
 
-      items: items.map(
-        (item: any) => ({
-          productId:
-            item.productId.trim(),
-
-          variantId:
-            typeof item.variantId ===
-              "string" &&
-            item.variantId.trim()
-              ? item.variantId.trim()
-              : undefined,
-
-          quantity:
-            Number(item.quantity),
-        })
-      ),
+      items: normalizedItems,
 
       customer: {
-        fullName:
-          customer.fullName.trim(),
-
-        whatsappNumber:
-          customer.whatsappNumber.trim(),
-
-        email:
-          typeof customer.email ===
-            "string" &&
-          customer.email.trim()
-            ? customer.email.trim()
-            : undefined,
+        fullName,
+        whatsappNumber,
+        email,
       },
 
       address: {
-        province:
-          address.province.trim(),
-
-        city:
-          address.city.trim(),
-
-        district:
-          address.district.trim(),
-
-        postalCode:
-          address.postalCode.trim(),
-
-        fullAddress:
-          address.fullAddress.trim(),
-
-        notes:
-          typeof address.notes ===
-            "string" &&
-          address.notes.trim()
-            ? address.notes.trim()
-            : undefined,
+        province,
+        city,
+        district,
+        postalCode,
+        fullAddress,
+        notes,
       },
     };
 
     /*
      * ==========================================
-     * 7. CREATE ORDER
+     * 8. REQUEST HASH
+     * ==========================================
+     */
+
+    const requestHash =
+      createRequestHash(
+        checkoutInput
+      );
+
+    /*
+     * ==========================================
+     * 9. CREATE ORDER
      * ==========================================
      */
 
@@ -379,16 +478,23 @@ export async function POST(request: Request) {
 
     /*
      * ==========================================
-     * 8. RESPONSE
+     * 10. SUCCESS RESPONSE
      * ==========================================
      */
 
     return NextResponse.json({
       success: true,
       order: result.order,
-      whatsappUrl: result.whatsappUrl,
+      whatsappUrl:
+        result.whatsappUrl,
     });
   } catch (error) {
+    /*
+     * ==========================================
+     * SERVER ERROR
+     * ==========================================
+     */
+
     console.error(
       "Checkout API error:",
       error
