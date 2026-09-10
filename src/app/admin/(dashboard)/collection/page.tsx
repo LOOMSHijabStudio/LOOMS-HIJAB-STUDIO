@@ -20,7 +20,7 @@ export default function CollectionAdminPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // ==========================================
-  // LOAD PRODUCTS FROM ADMIN PRODUCTS API
+  // LOAD PRODUCTS
   // ==========================================
   async function loadProducts() {
     try {
@@ -38,7 +38,6 @@ export default function CollectionAdminPage() {
 
       const allProducts: Product[] = data.products || [];
 
-      // HANYA PRODUK YANG MASUK COLLECTION
       const collectionProducts = allProducts.filter((product) =>
         product.placements?.includes("COLLECTION")
       );
@@ -58,7 +57,7 @@ export default function CollectionAdminPage() {
   }
 
   // ==========================================
-  // REMOVE PRODUCT FROM COLLECTION
+  // REMOVE FROM COLLECTION
   // ==========================================
   async function removeFromCollection(productId: string) {
     const confirmed = window.confirm(
@@ -93,7 +92,6 @@ export default function CollectionAdminPage() {
         );
       }
 
-      // Hapus langsung dari tampilan
       setProducts((current) =>
         current.filter((product) => product.id !== productId)
       );
@@ -139,9 +137,7 @@ export default function CollectionAdminPage() {
   return (
     <div className="min-h-screen bg-looms-cream p-6">
       <div className="mx-auto max-w-7xl">
-        {/* ==========================================
-            HEADER
-        ========================================== */}
+        {/* HEADER */}
         <div className="mb-8">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -162,9 +158,7 @@ export default function CollectionAdminPage() {
           </div>
         </div>
 
-        {/* ==========================================
-            SEARCH
-        ========================================== */}
+        {/* SEARCH */}
         <div className="mb-6">
           <input
             type="text"
@@ -175,9 +169,7 @@ export default function CollectionAdminPage() {
           />
         </div>
 
-        {/* ==========================================
-            PRODUCT TABLE
-        ========================================== */}
+        {/* TABLE */}
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           {loading ? (
             <div className="p-10 text-center text-gray-500">
@@ -191,7 +183,10 @@ export default function CollectionAdminPage() {
 
               {search ? (
                 <p className="mt-2 text-sm text-gray-500">
-                  Tidak ada produk yang cocok dengan pencarian "{search}".
+                  Tidak ada produk yang cocok dengan pencarian:{" "}
+                  <span className="font-medium text-gray-700">
+                    {search}
+                  </span>
                 </p>
               ) : (
                 <p className="mt-2 text-sm text-gray-500">
@@ -203,9 +198,6 @@ export default function CollectionAdminPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                {/* ==========================================
-                    TABLE HEADER
-                ========================================== */}
                 <thead className="border-b bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">
@@ -230,16 +222,13 @@ export default function CollectionAdminPage() {
                   </tr>
                 </thead>
 
-                {/* ==========================================
-                    TABLE BODY
-                ========================================== */}
                 <tbody>
                   {filteredProducts.map((product) => (
                     <tr
                       key={product.id}
                       className="border-b last:border-b-0 hover:bg-gray-50"
                     >
-                      {/* PRODUK */}
+                      {/* PRODUCT */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-4">
                           {product.image ? (
@@ -271,17 +260,17 @@ export default function CollectionAdminPage() {
                         {product.sku}
                       </td>
 
-                      {/* HARGA */}
+                      {/* PRICE */}
                       <td className="px-6 py-4 text-sm text-gray-900">
                         Rp {product.price.toLocaleString("id-ID")}
                       </td>
 
-                      {/* STOK */}
+                      {/* STOCK */}
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {product.stock}
                       </td>
 
-                      {/* AKSI */}
+                      {/* ACTION */}
                       <td className="px-6 py-4 text-right">
                         <button
                           type="button"
