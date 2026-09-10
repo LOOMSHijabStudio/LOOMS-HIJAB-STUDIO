@@ -569,7 +569,7 @@ export default async function HomePage() {
           </p>
 
           <h2 className="mt-4 font-serif text-4xl text-looms-teal">
-            @loomshijabstudio
+            @beyond.looms
           </h2>
 
           <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-looms-gray">
