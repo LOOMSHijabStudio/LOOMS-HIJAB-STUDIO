@@ -399,11 +399,6 @@ export default function CheckoutPage() {
                           value={city}
                         >
                           {city}
-                          {specialWestJavaCities.has(
-                            city
-                          )
-                            ? " — Rp5.000"
-                            : " — Rp10.000"}
                         </option>
                       )
                     )}
