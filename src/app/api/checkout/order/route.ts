@@ -65,13 +65,143 @@ function getPositiveInteger(
   return numericValue;
 }
 
+/*
+ * Mencari order ID secara fleksibel.
+ *
+ * Tidak akan menggagalkan checkout kalau
+ * ID tidak ditemukan.
+ */
+function findOrderId(
+  value: unknown
+): string | null {
+  if (!isJsonObject(value)) {
+    return null;
+  }
+
+  const directKeys = [
+    "orderId",
+    "order_id",
+    "id",
+  ];
+
+  for (const key of directKeys) {
+    const candidate =
+      value[key];
+
+    if (
+      typeof candidate === "string" &&
+      candidate.trim()
+    ) {
+      /*
+       * Jangan anggap semua "id" sebagai
+       * order ID. Untuk id langsung,
+       * kita hanya prioritaskan orderId/order_id.
+       */
+      if (
+        key === "orderId" ||
+        key === "order_id"
+      ) {
+        return candidate.trim();
+      }
+    }
+  }
+
+  /*
+   * Cari di object order.
+   */
+  const preferredKeys = [
+    "order",
+    "createdOrder",
+    "created_order",
+    "orderData",
+    "data",
+    "result",
+  ];
+
+  for (const key of preferredKeys) {
+    const nested = value[key];
+
+    if (
+      isJsonObject(nested)
+    ) {
+      const nestedId =
+        findOrderId(nested);
+
+      if (nestedId) {
+        return nestedId;
+      }
+    }
+  }
+
+  /*
+   * Fallback:
+   * kalau object memiliki order_number,
+   * id kemungkinan besar adalah ID order.
+   */
+  const hasOrderNumber =
+    typeof value.order_number ===
+      "string" &&
+    value.order_number.trim() !== "";
+
+  if (
+    hasOrderNumber &&
+    typeof value.id === "string" &&
+    value.id.trim() !== ""
+  ) {
+    return value.id.trim();
+  }
+
+  return null;
+}
+
+function findWhatsAppUrl(
+  value: unknown
+): string | null {
+  if (!isJsonObject(value)) {
+    return null;
+  }
+
+  const direct =
+    value.whatsappUrl;
+
+  if (
+    typeof direct === "string" &&
+    direct.trim()
+  ) {
+    return direct.trim();
+  }
+
+  const nestedKeys = [
+    "data",
+    "result",
+    "order",
+  ];
+
+  for (const key of nestedKeys) {
+    const nested = value[key];
+
+    if (
+      isJsonObject(nested)
+    ) {
+      const url =
+        findWhatsAppUrl(nested);
+
+      if (url) {
+        return url;
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function POST(
   request: Request
 ) {
   try {
     /*
      * ==========================================
-     * 1. BACA REQUEST
+     * 1. READ REQUEST
      * ==========================================
      */
 
@@ -117,13 +247,18 @@ export async function POST(
         "idempotencyKey"
       );
 
-    const rawItems = body.items;
-    const rawCustomer = body.customer;
-    const rawAddress = body.address;
+    const rawItems =
+      body.items;
+
+    const rawCustomer =
+      body.customer;
+
+    const rawAddress =
+      body.address;
 
     /*
      * ==========================================
-     * 3. VALIDASI DASAR
+     * 3. BASIC VALIDATION
      * ==========================================
      */
 
@@ -164,7 +299,11 @@ export async function POST(
       );
     }
 
-    if (!isJsonObject(rawCustomer)) {
+    if (
+      !isJsonObject(
+        rawCustomer
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -177,7 +316,11 @@ export async function POST(
       );
     }
 
-    if (!isJsonObject(rawAddress)) {
+    if (
+      !isJsonObject(
+        rawAddress
+      )
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -349,7 +492,7 @@ export async function POST(
 
     /*
      * ==========================================
-     * 6. NORMALIZE ITEMS
+     * 6. ITEMS
      * ==========================================
      */
 
@@ -360,7 +503,11 @@ export async function POST(
     }> = [];
 
     for (const rawItem of rawItems) {
-      if (!isJsonObject(rawItem)) {
+      if (
+        !isJsonObject(
+          rawItem
+        )
+      ) {
         return NextResponse.json(
           {
             success: false,
@@ -419,9 +566,13 @@ export async function POST(
 
       normalizedItems.push({
         productId,
+
         ...(variantId
-          ? { variantId }
+          ? {
+              variantId,
+            }
           : {}),
+
         quantity,
       });
     }
@@ -466,118 +617,33 @@ export async function POST(
 
     /*
      * ==========================================
-     * 9. NORMALIZE RESULT
+     * 9. ORDER ID
      * ==========================================
      *
-     * Kita tidak lagi menganggap bahwa
-     * createOrder() pasti mengembalikan
+     * ID hanya diambil kalau memang tersedia.
      *
-     * result.order.id
-     *
-     * Kita periksa beberapa bentuk yang mungkin.
-     */
-
-    const rawResult: unknown =
-      result;
-
-    let orderObject: JsonObject | null =
-      null;
-
-    let whatsappUrl = "";
-
-    if (isJsonObject(rawResult)) {
-      /*
-       * Bentuk A:
-       *
-       * {
-       *   order: {...},
-       *   whatsappUrl: "..."
-       * }
-       */
-
-      const nestedOrder =
-        rawResult.order;
-
-      if (
-        isJsonObject(
-          nestedOrder
-        )
-      ) {
-        orderObject =
-          nestedOrder;
-      }
-
-      /*
-       * Ambil WhatsApp URL
-       */
-      whatsappUrl =
-        getString(
-          rawResult,
-          "whatsappUrl"
-        );
-
-      /*
-       * Bentuk B:
-       *
-       * {
-       *   id: "...",
-       *   order_number: "...",
-       *   whatsappUrl: "..."
-       * }
-       */
-      if (!orderObject) {
-        const directId =
-          getString(
-            rawResult,
-            "id"
-          );
-
-        if (directId) {
-          orderObject =
-            rawResult;
-        }
-      }
-    }
-
-    /*
-     * ==========================================
-     * 10. PASTIKAN ORDER ID ADA
-     * ==========================================
+     * TIDAK boleh membuat checkout gagal
+     * hanya karena ID tidak terbaca.
      */
 
     const orderId =
-      orderObject
-        ? getString(
-            orderObject,
-            "id"
-          )
-        : "";
-
-    if (!orderId) {
-      console.error(
-        "Checkout created order but no order ID was found.",
-        result
-      );
-
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Order berhasil dibuat tetapi ID order tidak dapat dibaca dari response server.",
-        },
-        {
-          status: 500,
-        }
-      );
-    }
+      findOrderId(result);
 
     /*
      * ==========================================
-     * 11. PASTIKAN WHATSAPP URL
+     * 10. WHATSAPP
      * ==========================================
      */
 
+    const whatsappUrl =
+      findWhatsAppUrl(result);
+
     if (!whatsappUrl) {
+      console.error(
+        "Order created but WhatsApp URL was not found.",
+        result
+      );
+
       return NextResponse.json(
         {
           success: false,
@@ -593,18 +659,30 @@ export async function POST(
 
     /*
      * ==========================================
-     * 12. SUCCESS
+     * 11. RESPONSE
      * ==========================================
      */
+
+    if (isJsonObject(result)) {
+      return NextResponse.json({
+        success: true,
+
+        ...result,
+
+        orderId,
+
+        whatsappUrl,
+      });
+    }
 
     return NextResponse.json({
       success: true,
 
-      order: orderObject,
-
       orderId,
 
       whatsappUrl,
+
+      data: result,
     });
   } catch (error) {
     console.error(
