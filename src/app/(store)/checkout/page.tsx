@@ -59,12 +59,6 @@ const shippingRates: Record<string, number> = {
   "Papua Barat Daya": 70000,
 };
 
-/*
- * Kota / Kabupaten khusus Jawa Barat.
- *
- * Cirebon dan Indramayu mendapatkan ongkir Rp5.000.
- * Jawa Barat lainnya Rp10.000.
- */
 const westJavaCities = [
   "Kabupaten Bandung",
   "Kabupaten Bandung Barat",
@@ -84,7 +78,6 @@ const westJavaCities = [
   "Kabupaten Sukabumi",
   "Kabupaten Sumedang",
   "Kabupaten Tasikmalaya",
-
   "Kota Bandung",
   "Kota Banjar",
   "Kota Bekasi",
@@ -105,11 +98,8 @@ const specialWestJavaCities = new Set([
 export default function CheckoutPage() {
   const { items, subtotal } = useCart();
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
-
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [form, setForm] = useState({
     fullName: "",
@@ -122,22 +112,6 @@ export default function CheckoutPage() {
     fullAddress: "",
     notes: "",
   });
-
-  /*
-   * ==========================================
-   * SHIPPING
-   * ==========================================
-   *
-   * Gratis ongkir jika subtotal >= Rp500.000.
-   *
-   * Jawa Barat:
-   * - Kota Cirebon = Rp5.000
-   * - Kabupaten Cirebon = Rp5.000
-   * - Kabupaten Indramayu = Rp5.000
-   * - Jawa Barat lainnya = Rp10.000
-   *
-   * Provinsi lain mengikuti shippingRates.
-   */
 
   const shipping =
     subtotal >= 500000
@@ -181,110 +155,63 @@ export default function CheckoutPage() {
     setIsSubmitting(true);
 
     try {
-      /*
-       * Satu checkout = satu idempotency key.
-       */
-     const idempotencyKey =
-  globalThis.crypto?.randomUUID?.() ??
-  String(Date.now()) +
-    "-" +
-    Math.random().toString(36).slice(2);
+      const idempotencyKey =
+        globalThis.crypto?.randomUUID?.() ??
+        String(Date.now()) +
+          "-" +
+          Math.random().toString(36).slice(2);
 
-      /*
-       * Harga TIDAK dikirim dari browser.
-       */
       const payload = {
         idempotencyKey,
 
         items: items.map((item) => ({
           productId: item.productId,
-          variantId:
-            item.variantId || undefined,
+          variantId: item.variantId || undefined,
           quantity: item.quantity,
         })),
 
         customer: {
-          fullName:
-            form.fullName.trim(),
-          whatsappNumber:
-            form.whatsappNumber.trim(),
-          email:
-            form.email.trim() || undefined,
+          fullName: form.fullName.trim(),
+          whatsappNumber: form.whatsappNumber.trim(),
+          email: form.email.trim() || undefined,
         },
 
         address: {
-          province:
-            form.province.trim(),
-          city:
-            form.city.trim(),
-          district:
-            form.district.trim(),
-          postalCode:
-            form.postalCode.trim(),
-          fullAddress:
-            form.fullAddress.trim(),
-          notes:
-            form.notes.trim() || undefined,
+          province: form.province.trim(),
+          city: form.city.trim(),
+          district: form.district.trim(),
+          postalCode: form.postalCode.trim(),
+          fullAddress: form.fullAddress.trim(),
+          notes: form.notes.trim() || undefined,
         },
       };
-
-      /*
-       * ==========================================
-       * 1. CREATE ORDER
-       * ==========================================
-       */
 
       const response = await fetch(
         "/api/checkout/order",
         {
           method: "POST",
           headers: {
-            "Content-Type":
-              "application/json",
+            "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
         }
       );
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
-      /*
-       * Kalau CREATE ORDER benar-benar gagal,
-       * hentikan proses.
-       */
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
           result.error ||
             "Order tidak dapat dibuat. Silakan coba lagi."
         );
       }
 
-      /*
-       * ==========================================
-       * 2. AMBIL ORDER ID
-       * ==========================================
-       */
-
       const orderId =
         result?.orderId ||
         result?.order?.id ||
         null;
 
-      /*
-       * Supaya tidak dianggap unused oleh TypeScript
-       * jika orderId memang tidak digunakan langsung.
-       */
       void orderId;
-
-      /*
-       * ==========================================
-       * 3. WHATSAPP
-       * ==========================================
-       */
 
       if (!result.whatsappUrl) {
         throw new Error(
@@ -292,18 +219,9 @@ export default function CheckoutPage() {
         );
       }
 
-      /*
-       * Order sudah dibuat.
-       * Sekarang buka WhatsApp.
-       */
-      window.location.assign(
-        result.whatsappUrl
-      );
+      window.location.assign(result.whatsappUrl);
     } catch (error) {
-      console.error(
-        "Checkout error:",
-        error
-      );
+      console.error("Checkout error:", error);
 
       setErrorMessage(
         error instanceof Error
@@ -314,12 +232,6 @@ export default function CheckoutPage() {
       setIsSubmitting(false);
     }
   }
-
-  /*
-   * ==========================================
-   * CART KOSONG
-   * ==========================================
-   */
 
   if (!items.length) {
     return (
@@ -333,8 +245,7 @@ export default function CheckoutPage() {
         </h1>
 
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-looms-gray">
-          Add a piece to your bag before
-          continuing to checkout.
+          Add a piece to your bag before continuing to checkout.
         </p>
 
         <Link
@@ -364,10 +275,6 @@ export default function CheckoutPage() {
           onSubmit={submit}
           className="space-y-8"
         >
-          {/* ================================= */}
-          {/* CONTACT */}
-          {/* ================================= */}
-
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
               Contact
@@ -397,9 +304,7 @@ export default function CheckoutPage() {
                 <input
                   required
                   type="tel"
-                  value={
-                    form.whatsappNumber
-                  }
+                  value={form.whatsappNumber}
                   onChange={(event) =>
                     update(
                       "whatsappNumber",
@@ -433,18 +338,12 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ================================= */}
-          {/* SHIPPING ADDRESS */}
-          {/* ================================= */}
-
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
               Shipping address
             </h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {/* PROVINCE */}
-
               <label className="text-sm">
                 Province
 
@@ -456,7 +355,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                 >
                   <option value="">
                     Select province
@@ -475,13 +374,10 @@ export default function CheckoutPage() {
                 </select>
               </label>
 
-              {/* CITY / REGENCY */}
-
               <label className="text-sm">
                 City / Regency
 
-                {form.province ===
-                "Jawa Barat" ? (
+                {form.province === "Jawa Barat" ? (
                   <select
                     required
                     value={form.city}
@@ -529,8 +425,6 @@ export default function CheckoutPage() {
                 )}
               </label>
 
-              {/* DISTRICT */}
-
               <label className="text-sm">
                 District
 
@@ -547,8 +441,6 @@ export default function CheckoutPage() {
                   placeholder="Kecamatan"
                 />
               </label>
-
-              {/* POSTAL CODE */}
 
               <label className="text-sm">
                 Postal code
@@ -568,17 +460,13 @@ export default function CheckoutPage() {
                 />
               </label>
 
-              {/* FULL ADDRESS */}
-
               <label className="text-sm sm:col-span-2">
                 Full address
 
                 <textarea
                   required
                   rows={4}
-                  value={
-                    form.fullAddress
-                  }
+                  value={form.fullAddress}
                   onChange={(event) =>
                     update(
                       "fullAddress",
@@ -589,8 +477,6 @@ export default function CheckoutPage() {
                   placeholder="Alamat lengkap..."
                 />
               </label>
-
-              {/* NOTES */}
 
               <label className="text-sm sm:col-span-2">
                 Notes{" "}
@@ -607,16 +493,12 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="Catatan untuk pesanan..."
                 />
               </label>
             </div>
           </section>
-
-          {/* ================================= */}
-          {/* ERROR */}
-          {/* ================================= */}
 
           {errorMessage && (
             <div className="border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-700">
@@ -629,10 +511,6 @@ export default function CheckoutPage() {
               </p>
             </div>
           )}
-
-          {/* ================================= */}
-          {/* SUBMIT */}
-          {/* ================================= */}
 
           <button
             type="submit"
@@ -649,10 +527,6 @@ export default function CheckoutPage() {
           </p>
         </form>
 
-        {/* ================================= */}
-        {/* ORDER SUMMARY */}
-        {/* ================================= */}
-
         <aside className="h-fit border-t border-looms-teal/20 pt-6 lg:sticky lg:top-8 lg:border-t-0 lg:pt-0">
           <h2 className="font-display text-3xl text-looms-teal">
             Summary
@@ -666,7 +540,11 @@ export default function CheckoutPage() {
 
               return (
                 <div
-                  key={item.productId + "-" + item.variantId}
+                  key={
+                    item.productId +
+                    "-" +
+                    item.variantId
+                  }
                   className="flex justify-between gap-4 text-sm"
                 >
                   <div>
@@ -690,8 +568,6 @@ export default function CheckoutPage() {
               );
             })}
           </div>
-
-          {/* TOTAL */}
 
           <div className="mt-6 space-y-3 border-t border-looms-teal/15 pt-5 text-sm">
             <div className="flex justify-between">
