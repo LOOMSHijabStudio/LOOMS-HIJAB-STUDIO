@@ -13,6 +13,7 @@ const links = [
   { href: "/new-arrivals", label: "New Arrivals" },
   { href: "/collection", label: "Collection" },
   { href: "/best-sellers", label: "Best Sellers" },
+  { href: "/looms-society", label: "Looms Society" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
@@ -34,15 +35,22 @@ export function Navbar() {
           className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-3 sm:px-5 lg:h-20 lg:px-10"
           aria-label="Primary navigation"
         >
+
           {/* MOBILE LEFT */}
           <div className="flex min-w-0 flex-1 items-center gap-1 lg:hidden">
+
             <button
               type="button"
               aria-label="Open navigation"
-              onClick={() => setMenuOpen(true)}
+              onClick={() =>
+                setMenuOpen(true)
+              }
               className="grid h-11 w-11 place-items-center"
             >
-              <Icon name="menu" className="h-5 w-5" />
+              <Icon
+                name="menu"
+                className="h-5 w-5"
+              />
             </button>
 
             <Link
@@ -50,8 +58,12 @@ export function Navbar() {
               aria-label="Search products"
               className="grid h-11 w-11 place-items-center"
             >
-              <Icon name="search" className="h-5 w-5" />
+              <Icon
+                name="search"
+                className="h-5 w-5"
+              />
             </Link>
+
           </div>
 
           {/* LOGO */}
@@ -64,26 +76,32 @@ export function Navbar() {
 
           {/* DESKTOP NAV */}
           <div className="hidden flex-1 justify-center gap-6 lg:flex">
-            {links.map((link) => (
-              <Link
-                key={link.label}
-                href={link.href}
-                className="text-xs tracking-[0.08em] text-looms-teal hover:text-looms-gray"
-              >
-                {link.label}
-              </Link>
-            ))}
+            {links.map(
+              (link) => (
+                <Link
+                  key={link.label}
+                  href={link.href}
+                  className="text-xs tracking-[0.08em] text-looms-teal hover:text-looms-gray"
+                >
+                  {link.label}
+                </Link>
+              )
+            )}
           </div>
 
           {/* RIGHT ACTIONS */}
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+
             {/* SEARCH */}
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
               className="hidden lg:grid lg:h-11 lg:w-11 lg:place-items-center"
             >
-              <Icon name="search" className="h-5 w-5" />
+              <Icon
+                name="search"
+                className="h-5 w-5"
+              />
             </Link>
 
             {/* WISHLIST */}
@@ -100,7 +118,10 @@ export function Navbar() {
                   ♥
                 </span>
               ) : (
-                <Icon name="heart" className="h-5 w-5" />
+                <Icon
+                  name="heart"
+                  className="h-5 w-5"
+                />
               )}
 
               {wishlist.length > 0 && (
@@ -113,11 +134,16 @@ export function Navbar() {
             {/* CART */}
             <button
               type="button"
-              onClick={() => setOpen(true)}
+              onClick={() =>
+                setOpen(true)
+              }
               aria-label={`Open cart, ${itemCount} items`}
               className="relative grid h-11 w-11 place-items-center"
             >
-              <Icon name="bag" className="h-5 w-5" />
+              <Icon
+                name="bag"
+                className="h-5 w-5"
+              />
 
               {itemCount > 0 && (
                 <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-full bg-looms-teal text-[9px] text-looms-cream">
@@ -125,6 +151,7 @@ export function Navbar() {
                 </span>
               )}
             </button>
+
           </div>
         </nav>
       </header>
@@ -132,10 +159,13 @@ export function Navbar() {
       {/* MOBILE MENU */}
       {menuOpen && (
         <div className="fixed inset-0 z-[60]">
+
           <button
             type="button"
             aria-label="Close navigation"
-            onClick={() => setMenuOpen(false)}
+            onClick={() =>
+              setMenuOpen(false)
+            }
             className="absolute inset-0 bg-looms-teal/35"
           />
 
@@ -145,7 +175,9 @@ export function Navbar() {
             aria-label="Mobile navigation"
             className="relative flex h-full w-[88%] max-w-sm flex-col bg-looms-cream px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
           >
+
             <div className="flex items-center justify-between">
+
               <span className="font-display text-2xl tracking-[0.14em]">
                 LOOMS
               </span>
@@ -153,32 +185,47 @@ export function Navbar() {
               <button
                 type="button"
                 aria-label="Close navigation"
-                onClick={() => setMenuOpen(false)}
+                onClick={() =>
+                  setMenuOpen(false)
+                }
                 className="grid h-11 w-11 place-items-center"
               >
-                <Icon name="close" className="h-5 w-5" />
+                <Icon
+                  name="close"
+                  className="h-5 w-5"
+                />
               </button>
+
             </div>
 
             <div className="mt-10 flex flex-col">
-              {links.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
-                >
-                  {link.label}
-                </Link>
-              ))}
+
+              {links.map(
+                (link) => (
+                  <Link
+                    key={link.label}
+                    href={link.href}
+                    onClick={() =>
+                      setMenuOpen(false)
+                    }
+                    className="border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
+                  >
+                    {link.label}
+                  </Link>
+                )
+              )}
 
               {/* MOBILE WISHLIST */}
               <Link
                 href="/wishlist"
-                onClick={() => setMenuOpen(false)}
+                onClick={() =>
+                  setMenuOpen(false)
+                }
                 className="flex items-center justify-between border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
               >
-                <span>Wishlist</span>
+                <span>
+                  Wishlist
+                </span>
 
                 {wishlist.length > 0 && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-looms-teal px-1 text-[9px] text-looms-cream">
@@ -186,6 +233,7 @@ export function Navbar() {
                   </span>
                 )}
               </Link>
+
             </div>
           </div>
         </div>
