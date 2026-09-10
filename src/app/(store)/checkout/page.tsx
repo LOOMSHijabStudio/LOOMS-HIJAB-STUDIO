@@ -386,7 +386,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="Nama lengkap"
                 />
               </label>
