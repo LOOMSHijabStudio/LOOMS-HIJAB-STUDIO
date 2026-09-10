@@ -66,9 +66,6 @@ export default function CheckoutPage() {
   const [errorMessage, setErrorMessage] =
     useState("");
 
-  /*
-   * Data customer
-   */
   const [form, setForm] = useState({
     fullName: "",
     whatsappNumber: "",
@@ -82,7 +79,7 @@ export default function CheckoutPage() {
   });
 
   /*
-   * Looms Society
+   * LOOMS SOCIETY
    *
    * Semua field optional.
    */
@@ -94,8 +91,7 @@ export default function CheckoutPage() {
     });
 
   /*
-   * Ongkir hanya untuk tampilan checkout.
-   * Total final tetap dihitung server/database.
+   * Ongkir untuk tampilan checkout.
    */
   const shipping =
     subtotal >= 500000
@@ -115,10 +111,7 @@ export default function CheckoutPage() {
   }
 
   function updateSocietyReview(
-    field:
-      | "name"
-      | "rating"
-      | "notes",
+    field: "name" | "rating" | "notes",
     value: string | number | null
   ) {
     setSocietyReview((current) => ({
@@ -150,11 +143,7 @@ export default function CheckoutPage() {
           .slice(2)}`;
 
       /*
-       * Payload order.
-       *
        * Harga TIDAK dikirim dari browser.
-       * Server/database tetap menjadi sumber
-       * harga yang sebenarnya.
        */
       const payload = {
         idempotencyKey,
@@ -187,16 +176,16 @@ export default function CheckoutPage() {
           fullAddress:
             form.fullAddress.trim(),
           notes:
-            form.notes.trim() ||
-            undefined,
+            form.notes.trim() || undefined,
         },
       };
 
       /*
-       * ==========================
+       * ==========================================
        * 1. CREATE ORDER
-       * ==========================
+       * ==========================================
        */
+
       const response = await fetch(
         "/api/checkout/order",
         {
@@ -209,11 +198,12 @@ export default function CheckoutPage() {
         }
       );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       /*
-       * Kalau order gagal,
-       * jangan lanjut ke review/WhatsApp.
+       * Kalau CREATE ORDER benar-benar gagal,
+       * hentikan proses.
        */
       if (
         !response.ok ||
@@ -226,74 +216,93 @@ export default function CheckoutPage() {
       }
 
       /*
-       * Order ID wajib ada
-       * karena review dikaitkan ke order.
+       * ==========================================
+       * 2. AMBIL ORDER ID
+       * ==========================================
+       *
+       * Tidak wajib.
+       *
+       * Kalau tersedia → review dikaitkan ke order.
+       * Kalau tidak tersedia → review tetap bisa
+       * disimpan oleh API Looms Society.
        */
-      const orderId =
-        result?.order?.id;
 
-      if (!orderId) {
-        throw new Error(
-          "Order berhasil dibuat tetapi ID order tidak tersedia."
-        );
-      }
+      const orderId =
+        result?.orderId ||
+        result?.order?.id ||
+        null;
 
       /*
-       * ==========================
-       * 2. SAVE LOOMS SOCIETY
-       * ==========================
-       *
-       * Review hanya dikirim kalau
-       * customer benar-benar mengisi sesuatu.
+       * ==========================================
+       * 3. LOOMS SOCIETY REVIEW
+       * ==========================================
        */
+
       const hasSocietyReview =
         societyReview.name.trim() !== "" ||
         societyReview.notes.trim() !== "" ||
         societyReview.rating !== null;
 
       if (hasSocietyReview) {
-        const reviewResponse =
-          await fetch(
-            "/api/society/reviews",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-              body: JSON.stringify({
-                orderId,
-                name:
-                  societyReview.name.trim() ||
-                  null,
-                rating:
-                  societyReview.rating,
-                notes:
-                  societyReview.notes.trim() ||
-                  null,
-              }),
-            }
-          );
+        try {
+          const reviewResponse =
+            await fetch(
+              "/api/society/reviews",
+              {
+                method: "POST",
 
-        const reviewResult =
-          await reviewResponse.json();
+                headers: {
+                  "Content-Type":
+                    "application/json",
+                },
 
-        if (
-          !reviewResponse.ok ||
-          !reviewResult.success
-        ) {
-          throw new Error(
-            reviewResult.error ||
-              "Review Looms Society gagal disimpan."
+                body: JSON.stringify({
+                  orderId,
+
+                  name:
+                    societyReview.name.trim() ||
+                    null,
+
+                  rating:
+                    societyReview.rating,
+
+                  notes:
+                    societyReview.notes.trim() ||
+                    null,
+                }),
+              }
+            );
+
+          const reviewResult =
+            await reviewResponse.json();
+
+          /*
+           * Review gagal tidak boleh
+           * menggagalkan order.
+           */
+          if (
+            !reviewResponse.ok ||
+            !reviewResult.success
+          ) {
+            console.error(
+              "Looms Society review gagal:",
+              reviewResult
+            );
+          }
+        } catch (reviewError) {
+          console.error(
+            "Looms Society review error:",
+            reviewError
           );
         }
       }
 
       /*
-       * ==========================
-       * 3. WHATSAPP
-       * ==========================
+       * ==========================================
+       * 4. WHATSAPP
+       * ==========================================
        */
+
       if (!result.whatsappUrl) {
         throw new Error(
           "Order berhasil dibuat, tetapi link WhatsApp tidak tersedia."
@@ -301,8 +310,9 @@ export default function CheckoutPage() {
       }
 
       /*
-       * Review sudah selesai disimpan.
-       * Baru sekarang buka WhatsApp.
+       * Order sudah dibuat.
+       * Review sudah dicoba disimpan.
+       * Sekarang buka WhatsApp.
        */
       window.location.assign(
         result.whatsappUrl
@@ -324,8 +334,11 @@ export default function CheckoutPage() {
   }
 
   /*
-   * Kalau cart kosong.
+   * ==========================================
+   * CART KOSONG
+   * ==========================================
    */
+
   if (!items.length) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-20 text-center">
@@ -338,7 +351,8 @@ export default function CheckoutPage() {
         </h1>
 
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-looms-gray">
-          Add a piece to your bag before continuing to checkout.
+          Add a piece to your bag before
+          continuing to checkout.
         </p>
 
         <Link
@@ -368,9 +382,9 @@ export default function CheckoutPage() {
           onSubmit={submit}
           className="space-y-8"
         >
-          {/* ========================= */}
+          {/* ================================= */}
           {/* CONTACT */}
-          {/* ========================= */}
+          {/* ================================= */}
 
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
@@ -437,9 +451,9 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ========================= */}
+          {/* ================================= */}
           {/* SHIPPING ADDRESS */}
-          {/* ========================= */}
+          {/* ================================= */}
 
           <section>
             <h2 className="font-display text-3xl text-looms-teal">
@@ -572,9 +586,9 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ========================= */}
+          {/* ================================= */}
           {/* LOOMS SOCIETY */}
-          {/* ========================= */}
+          {/* ================================= */}
 
           <section className="border border-looms-teal/10 bg-looms-cream/30 p-6">
             <div>
@@ -692,9 +706,9 @@ export default function CheckoutPage() {
             </div>
           </section>
 
-          {/* ========================= */}
+          {/* ================================= */}
           {/* ERROR */}
-          {/* ========================= */}
+          {/* ================================= */}
 
           {errorMessage && (
             <div className="border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-700">
@@ -708,9 +722,9 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* ========================= */}
+          {/* ================================= */}
           {/* SUBMIT */}
-          {/* ========================= */}
+          {/* ================================= */}
 
           <button
             type="submit"
@@ -723,16 +737,16 @@ export default function CheckoutPage() {
           </button>
 
           <p className="text-center text-xs leading-6 text-looms-gray">
-            Your order will be saved first, then
-            your review will be saved to Looms
-            Society, and finally you will be
-            redirected to WhatsApp.
+            Your order will be saved first,
+            then your review will be saved to
+            Looms Society, and finally you will
+            be redirected to WhatsApp.
           </p>
         </form>
 
-        {/* ========================= */}
+        {/* ================================= */}
         {/* ORDER SUMMARY */}
-        {/* ========================= */}
+        {/* ================================= */}
 
         <aside className="h-fit border-t border-looms-teal/20 pt-6 lg:sticky lg:top-8 lg:border-t-0 lg:pt-0">
           <h2 className="font-display text-3xl text-looms-teal">
@@ -772,9 +786,7 @@ export default function CheckoutPage() {
             })}
           </div>
 
-          {/* ========================= */}
           {/* TOTAL */}
-          {/* ========================= */}
 
           <div className="mt-6 space-y-3 border-t border-looms-teal/15 pt-5 text-sm">
             <div className="flex justify-between">
@@ -805,8 +817,6 @@ export default function CheckoutPage() {
               </span>
             </div>
           </div>
-
-          {/* INFO */}
 
           <div className="mt-6 border border-looms-teal/10 bg-looms-cream/40 px-4 py-4">
             <p className="text-xs leading-6 text-looms-gray">
