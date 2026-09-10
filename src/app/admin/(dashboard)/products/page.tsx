@@ -17,6 +17,7 @@ interface ProductRecord {
   price: number;
   sale_price: number | null;
   stock: number;
+  availability: string;
   status: string;
   image?: string;
   description?: string;
