@@ -48,7 +48,7 @@ function getPositiveInteger(
 ): number | null {
   const value = object[key];
 
-  const numberValue =
+  const numericValue =
     typeof value === "number"
       ? value
       : typeof value === "string"
@@ -56,13 +56,13 @@ function getPositiveInteger(
         : NaN;
 
   if (
-    !Number.isInteger(numberValue) ||
-    numberValue < 1
+    !Number.isInteger(numericValue) ||
+    numericValue < 1
   ) {
     return null;
   }
 
-  return numberValue;
+  return numericValue;
 }
 
 export async function POST(
@@ -107,7 +107,7 @@ export async function POST(
 
     /*
      * ==========================================
-     * 2. AMBIL DATA UTAMA
+     * 2. ROOT DATA
      * ==========================================
      */
 
@@ -457,9 +457,6 @@ export async function POST(
      * ==========================================
      * 8. CREATE ORDER
      * ==========================================
-     *
-     * createOrder() di project ini
-     * menerima SATU argument.
      */
 
     const result =
@@ -469,15 +466,145 @@ export async function POST(
 
     /*
      * ==========================================
-     * 9. SUCCESS
+     * 9. NORMALIZE RESULT
+     * ==========================================
+     *
+     * Kita tidak lagi menganggap bahwa
+     * createOrder() pasti mengembalikan
+     *
+     * result.order.id
+     *
+     * Kita periksa beberapa bentuk yang mungkin.
+     */
+
+    const rawResult: unknown =
+      result;
+
+    let orderObject: JsonObject | null =
+      null;
+
+    let whatsappUrl = "";
+
+    if (isJsonObject(rawResult)) {
+      /*
+       * Bentuk A:
+       *
+       * {
+       *   order: {...},
+       *   whatsappUrl: "..."
+       * }
+       */
+
+      const nestedOrder =
+        rawResult.order;
+
+      if (
+        isJsonObject(
+          nestedOrder
+        )
+      ) {
+        orderObject =
+          nestedOrder;
+      }
+
+      /*
+       * Ambil WhatsApp URL
+       */
+      whatsappUrl =
+        getString(
+          rawResult,
+          "whatsappUrl"
+        );
+
+      /*
+       * Bentuk B:
+       *
+       * {
+       *   id: "...",
+       *   order_number: "...",
+       *   whatsappUrl: "..."
+       * }
+       */
+      if (!orderObject) {
+        const directId =
+          getString(
+            rawResult,
+            "id"
+          );
+
+        if (directId) {
+          orderObject =
+            rawResult;
+        }
+      }
+    }
+
+    /*
+     * ==========================================
+     * 10. PASTIKAN ORDER ID ADA
+     * ==========================================
+     */
+
+    const orderId =
+      orderObject
+        ? getString(
+            orderObject,
+            "id"
+          )
+        : "";
+
+    if (!orderId) {
+      console.error(
+        "Checkout created order but no order ID was found.",
+        result
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Order berhasil dibuat tetapi ID order tidak dapat dibaca dari response server.",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    /*
+     * ==========================================
+     * 11. PASTIKAN WHATSAPP URL
+     * ==========================================
+     */
+
+    if (!whatsappUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Order berhasil dibuat tetapi link WhatsApp tidak tersedia.",
+          orderId,
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+
+    /*
+     * ==========================================
+     * 12. SUCCESS
      * ==========================================
      */
 
     return NextResponse.json({
       success: true,
-      order: result.order,
-      whatsappUrl:
-        result.whatsappUrl,
+
+      order: orderObject,
+
+      orderId,
+
+      whatsappUrl,
     });
   } catch (error) {
     console.error(
