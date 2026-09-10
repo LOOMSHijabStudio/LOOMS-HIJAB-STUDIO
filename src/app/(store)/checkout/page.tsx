@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+
 import { useCart } from "@/components/cart/cart-provider";
 
 const money = (value: number) =>
@@ -17,6 +18,7 @@ const shippingRates: Record<string, number> = {
   "Jawa Tengah": 15000,
   "DI Yogyakarta": 15000,
   "Jawa Timur": 15000,
+
   "Sumatera Selatan": 30000,
   Lampung: 30000,
   "Sumatera Barat": 35000,
@@ -59,8 +61,11 @@ const shippingRates: Record<string, number> = {
 export default function CheckoutPage() {
   const { items, subtotal } = useCart();
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   const [form, setForm] = useState({
     fullName: "",
@@ -75,8 +80,23 @@ export default function CheckoutPage() {
   });
 
   /*
-   * Ongkir yang hanya digunakan untuk tampilan.
-   * Total sebenarnya tetap dihitung oleh database.
+   * =========================================================
+   * LOOMS SOCIETY REVIEW
+   * =========================================================
+   *
+   * Semua field bersifat OPTIONAL.
+   */
+  const [societyReview, setSocietyReview] =
+    useState({
+      name: "",
+      rating: null as number | null,
+      notes: "",
+    });
+
+  /*
+   * =========================================================
+   * SHIPPING
+   * =========================================================
    */
   const shipping =
     subtotal >= 500000
@@ -95,6 +115,11 @@ export default function CheckoutPage() {
     }));
   }
 
+  /*
+   * =========================================================
+   * SUBMIT CHECKOUT
+   * =========================================================
+   */
   async function submit(
     event: FormEvent<HTMLFormElement>
   ) {
@@ -109,9 +134,9 @@ export default function CheckoutPage() {
 
     try {
       /*
-       * Satu checkout = satu idempotency key.
-       * Mencegah double order ketika tombol ditekan
-       * lebih dari satu kali.
+       * =====================================================
+       * IDEMPOTENCY KEY
+       * =====================================================
        */
       const idempotencyKey =
         globalThis.crypto?.randomUUID?.() ??
@@ -120,65 +145,86 @@ export default function CheckoutPage() {
           .slice(2)}`;
 
       /*
-       * Kirim hanya data yang diperlukan server.
+       * =====================================================
+       * CHECKOUT PAYLOAD
+       * =====================================================
        *
-       * PENTING:
-       * Produk yang tidak mempunyai variant TIDAK
-       * mengirim variantId.
-       *
-       * Ini mencegah variantId lama dari localStorage
-       * dianggap sebagai variant aktif oleh database.
+       * Harga tidak dikirim dari browser.
+       * Server/database yang menentukan harga.
        */
       const payload = {
         idempotencyKey,
 
         items: items.map((item) => ({
           productId: item.productId,
-
-          ...(item.product.variants.length > 0 &&
-          item.variantId
-            ? {
-                variantId: item.variantId,
-              }
-            : {}),
-
+          variantId:
+            item.variantId || undefined,
           quantity: item.quantity,
         })),
 
         customer: {
-          fullName: form.fullName.trim(),
-          whatsappNumber: form.whatsappNumber.trim(),
-          email: form.email.trim() || undefined,
+          fullName:
+            form.fullName.trim(),
+
+          whatsappNumber:
+            form.whatsappNumber.trim(),
+
+          email:
+            form.email.trim() ||
+            undefined,
         },
 
         address: {
-          province: form.province.trim(),
-          city: form.city.trim(),
-          district: form.district.trim(),
-          postalCode: form.postalCode.trim(),
-          fullAddress: form.fullAddress.trim(),
-          notes: form.notes.trim() || undefined,
+          province:
+            form.province.trim(),
+
+          city:
+            form.city.trim(),
+
+          district:
+            form.district.trim(),
+
+          postalCode:
+            form.postalCode.trim(),
+
+          fullAddress:
+            form.fullAddress.trim(),
+
+          notes:
+            form.notes.trim() ||
+            undefined,
         },
       };
 
       /*
-       * Buat order terlebih dahulu di Supabase.
+       * =====================================================
+       * CREATE ORDER
+       * =====================================================
        */
-      const response = await fetch("/api/checkout/order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        "/api/checkout/order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const result = await response.json();
+      const result =
+        await response.json();
 
       /*
-       * Kalau server gagal membuat order,
-       * jangan buka WhatsApp.
+       * =====================================================
+       * CHECK ORDER RESULT
+       * =====================================================
        */
-      if (!response.ok || !result.success) {
+      if (
+        !response.ok ||
+        !result.success
+      ) {
         throw new Error(
           result.error ||
             "Order tidak dapat dibuat. Silakan coba lagi."
@@ -186,9 +232,9 @@ export default function CheckoutPage() {
       }
 
       /*
-       * Order sudah berhasil masuk database.
-       *
-       * Baru setelah itu buka WhatsApp.
+       * =====================================================
+       * CHECK WHATSAPP URL
+       * =====================================================
        */
       if (!result.whatsappUrl) {
         throw new Error(
@@ -196,9 +242,78 @@ export default function CheckoutPage() {
         );
       }
 
-      window.location.assign(result.whatsappUrl);
+      /*
+       * =====================================================
+       * LOOMS SOCIETY
+       * =====================================================
+       *
+       * Review bersifat OPTIONAL.
+       *
+       * Kalau customer tidak mengisi apa pun,
+       * kita tidak mengirim request review.
+       */
+      const hasSocietyReview =
+        societyReview.name.trim() !== "" ||
+        societyReview.notes.trim() !== "" ||
+        societyReview.rating !== null;
+
+      if (
+        hasSocietyReview &&
+        result.order?.id
+      ) {
+        try {
+          await fetch(
+            "/api/society/reviews",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type":
+                  "application/json",
+              },
+              body: JSON.stringify({
+                orderId:
+                  result.order.id,
+
+                name:
+                  societyReview.name.trim() ||
+                  null,
+
+                rating:
+                  societyReview.rating,
+
+                notes:
+                  societyReview.notes.trim() ||
+                  null,
+              }),
+            }
+          );
+        } catch (reviewError) {
+          /*
+           * Review gagal tidak boleh
+           * menggagalkan order.
+           */
+          console.error(
+            "Looms Society review error:",
+            reviewError
+          );
+        }
+      }
+
+      /*
+       * =====================================================
+       * REDIRECT TO WHATSAPP
+       * =====================================================
+       *
+       * Order sudah berhasil dibuat.
+       */
+      window.location.assign(
+        result.whatsappUrl
+      );
     } catch (error) {
-      console.error("Checkout error:", error);
+      console.error(
+        "Checkout error:",
+        error
+      );
 
       setErrorMessage(
         error instanceof Error
@@ -211,11 +326,14 @@ export default function CheckoutPage() {
   }
 
   /*
-   * Kalau cart kosong.
+   * =========================================================
+   * CART EMPTY
+   * =========================================================
    */
   if (!items.length) {
     return (
       <main className="mx-auto max-w-3xl px-5 py-20 text-center">
+
         <p className="text-xs tracking-[0.16em] text-looms-gray">
           YOUR BAG
         </p>
@@ -225,7 +343,8 @@ export default function CheckoutPage() {
         </h1>
 
         <p className="mx-auto mt-5 max-w-md text-sm leading-7 text-looms-gray">
-          Add a piece to your bag before continuing to checkout.
+          Add a piece to your bag before
+          continuing to checkout.
         </p>
 
         <Link
@@ -234,13 +353,22 @@ export default function CheckoutPage() {
         >
           RETURN TO SHOP
         </Link>
+
       </main>
     );
   }
 
+  /*
+   * =========================================================
+   * CHECKOUT PAGE
+   * =========================================================
+   */
   return (
     <main className="mx-auto max-w-[1200px] px-5 py-10 lg:px-10 lg:py-16">
+
+      {/* PAGE TITLE */}
       <div className="mb-10">
+
         <p className="text-xs tracking-[0.16em] text-looms-gray">
           YOUR BAG
         </p>
@@ -248,21 +376,31 @@ export default function CheckoutPage() {
         <h1 className="mt-3 font-display text-5xl text-looms-teal">
           Checkout.
         </h1>
+
       </div>
 
       <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
+
+        {/* ===================================================
+            LEFT / FORM
+        =================================================== */}
         <form
           onSubmit={submit}
           className="space-y-8"
         >
-          {/* CONTACT */}
 
+          {/* =================================================
+              CONTACT
+          ================================================= */}
           <section>
+
             <h2 className="font-display text-3xl text-looms-teal">
               Contact
             </h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
+
+              {/* FULL NAME */}
               <label className="text-sm sm:col-span-2">
                 Full name
 
@@ -280,6 +418,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* WHATSAPP */}
               <label className="text-sm">
                 WhatsApp number
 
@@ -298,6 +437,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* EMAIL */}
               <label className="text-sm">
                 Email{" "}
                 <span className="text-looms-gray">
@@ -317,17 +457,22 @@ export default function CheckoutPage() {
                   placeholder="email@example.com"
                 />
               </label>
+
             </div>
           </section>
 
-          {/* SHIPPING ADDRESS */}
-
+          {/* =================================================
+              SHIPPING ADDRESS
+          ================================================= */}
           <section>
+
             <h2 className="font-display text-3xl text-looms-teal">
               Shipping address
             </h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
+
+              {/* PROVINCE */}
               <label className="text-sm">
                 Province
 
@@ -346,19 +491,20 @@ export default function CheckoutPage() {
                     Select province
                   </option>
 
-                  {Object.keys(shippingRates).map(
-                    (province) => (
-                      <option
-                        key={province}
-                        value={province}
-                      >
-                        {province}
-                      </option>
-                    )
-                  )}
+                  {Object.keys(
+                    shippingRates
+                  ).map((province) => (
+                    <option
+                      key={province}
+                      value={province}
+                    >
+                      {province}
+                    </option>
+                  ))}
                 </select>
               </label>
 
+              {/* CITY */}
               <label className="text-sm">
                 City / Regency
 
@@ -376,6 +522,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* DISTRICT */}
               <label className="text-sm">
                 District
 
@@ -393,6 +540,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* POSTAL CODE */}
               <label className="text-sm">
                 Postal code
 
@@ -411,6 +559,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* FULL ADDRESS */}
               <label className="text-sm sm:col-span-2">
                 Full address
 
@@ -429,6 +578,7 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* ORDER NOTES */}
               <label className="text-sm sm:col-span-2">
                 Notes{" "}
                 <span className="text-looms-gray">
@@ -448,13 +598,165 @@ export default function CheckoutPage() {
                   placeholder="Catatan untuk pesanan..."
                 />
               </label>
+
             </div>
           </section>
 
-          {/* ERROR */}
+          {/* =================================================
+              LOOMS SOCIETY
+          ================================================= */}
+          <section className="border-t border-looms-teal/15 pt-8">
 
+            <div>
+
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-looms-gray">
+                LOOMS SOCIETY
+              </p>
+
+              <h2 className="mt-2 font-display text-3xl text-looms-teal">
+                Share your experience.
+              </h2>
+
+              <p className="mt-3 max-w-xl text-sm leading-7 text-looms-gray">
+                Kamu boleh memberikan
+                rating dan cerita singkat
+                tentang pengalamanmu
+                bersama LOOMS.
+                Bagian ini opsional dan
+                tidak memengaruhi proses
+                checkout.
+              </p>
+
+            </div>
+
+            {/* NAMA REVIEW */}
+            <label className="mt-6 block text-sm">
+
+              Nama{" "}
+              <span className="text-looms-gray">
+                (optional)
+              </span>
+
+              <input
+                type="text"
+                value={
+                  societyReview.name
+                }
+                onChange={(event) =>
+                  setSocietyReview(
+                    (current) => ({
+                      ...current,
+                      name:
+                        event.target.value,
+                    })
+                  )
+                }
+                className={`${inputClass} mt-2`}
+                placeholder="Nama kamu"
+                maxLength={100}
+              />
+
+            </label>
+
+            {/* RATING */}
+            <div className="mt-6">
+
+              <p className="text-sm">
+                Rating{" "}
+                <span className="text-looms-gray">
+                  (optional)
+                </span>
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+
+                {[1, 2, 3, 4, 5].map(
+                  (star) => {
+                    const active =
+                      societyReview.rating !==
+                        null &&
+                      star <=
+                        societyReview.rating;
+
+                    return (
+                      <button
+                        key={star}
+                        type="button"
+                        aria-label={`Rating ${star} dari 5`}
+                        aria-pressed={
+                          societyReview.rating ===
+                          star
+                        }
+                        onClick={() =>
+                          setSocietyReview(
+                            (current) => ({
+                              ...current,
+                              rating:
+                                current.rating ===
+                                star
+                                  ? null
+                                  : star,
+                            })
+                          )
+                        }
+                        className={`text-3xl leading-none transition ${
+                          active
+                            ? "text-looms-teal"
+                            : "text-gray-300 hover:text-looms-teal/60"
+                        }`}
+                      >
+                        ★
+                      </button>
+                    );
+                  }
+                )}
+
+                <span className="ml-2 text-xs text-looms-gray">
+                  {societyReview.rating
+                    ? `${societyReview.rating}/5`
+                    : "Belum memilih"}
+                </span>
+
+              </div>
+            </div>
+
+            {/* REVIEW */}
+            <label className="mt-6 block text-sm">
+
+              Review / Notes{" "}
+              <span className="text-looms-gray">
+                (optional)
+              </span>
+
+              <textarea
+                rows={4}
+                value={
+                  societyReview.notes
+                }
+                onChange={(event) =>
+                  setSocietyReview(
+                    (current) => ({
+                      ...current,
+                      notes:
+                        event.target.value,
+                    })
+                  )
+                }
+                className={`${inputClass} mt-2`}
+                placeholder="Ceritakan pengalaman kamu bersama LOOMS..."
+                maxLength={2000}
+              />
+
+            </label>
+
+          </section>
+
+          {/* =================================================
+              ERROR
+          ================================================= */}
           {errorMessage && (
             <div className="border border-red-300 bg-red-50 px-4 py-4 text-sm text-red-700">
+
               <p className="font-medium">
                 Checkout gagal
               </p>
@@ -462,11 +764,13 @@ export default function CheckoutPage() {
               <p className="mt-1">
                 {errorMessage}
               </p>
+
             </div>
           )}
 
-          {/* SUBMIT */}
-
+          {/* =================================================
+              SUBMIT
+          ================================================= */}
           <button
             type="submit"
             disabled={isSubmitting}
@@ -478,20 +782,25 @@ export default function CheckoutPage() {
           </button>
 
           <p className="text-center text-xs leading-6 text-looms-gray">
-            Your order will be saved first, then you
-            will be redirected to WhatsApp to continue
-            the confirmation.
+            Your order will be saved first,
+            then you will be redirected to
+            WhatsApp to continue the
+            confirmation.
           </p>
+
         </form>
 
-        {/* ORDER SUMMARY */}
-
+        {/* ===================================================
+            RIGHT / ORDER SUMMARY
+        =================================================== */}
         <aside className="h-fit border-t border-looms-teal/20 pt-6 lg:sticky lg:top-8 lg:border-t-0 lg:pt-0">
+
           <h2 className="font-display text-3xl text-looms-teal">
             Summary
           </h2>
 
           <div className="mt-5 space-y-4">
+
             {items.map((item) => {
               const unitPrice =
                 item.product.salePrice ??
@@ -499,20 +808,21 @@ export default function CheckoutPage() {
 
               return (
                 <div
-                  key={`${item.productId}-${item.variantId ?? "default"}`}
+                  key={`${item.productId}-${item.variantId}`}
                   className="flex justify-between gap-4 text-sm"
                 >
+
                   <div>
+
                     <p>
                       {item.product.name}
                     </p>
 
                     <p className="mt-1 text-xs text-looms-gray">
-                      {item.product.variants.length > 0
-                        ? item.variant
-                        : "Default"}{" "}
-                      · Qty {item.quantity}
+                      {item.variant} · Qty{" "}
+                      {item.quantity}
                     </p>
+
                   </div>
 
                   <p className="whitespace-nowrap">
@@ -521,14 +831,16 @@ export default function CheckoutPage() {
                         item.quantity
                     )}
                   </p>
+
                 </div>
               );
             })}
+
           </div>
 
           {/* TOTAL */}
-
           <div className="mt-6 space-y-3 border-t border-looms-teal/15 pt-5 text-sm">
+
             <div className="flex justify-between">
               <span>Subtotal</span>
 
@@ -548,25 +860,33 @@ export default function CheckoutPage() {
             </div>
 
             <div className="flex justify-between border-t border-looms-teal/15 pt-4 text-base font-medium">
+
               <span>Total</span>
 
               <span>
                 {money(
-                  subtotal + shipping
+                  subtotal +
+                    shipping
                 )}
               </span>
+
             </div>
+
           </div>
 
           {/* INFO */}
-
           <div className="mt-6 border border-looms-teal/10 bg-looms-cream/40 px-4 py-4">
+
             <p className="text-xs leading-6 text-looms-gray">
-              Order kamu akan dicatat ke sistem
-              LOOMS sebelum diarahkan ke WhatsApp.
+              Order kamu akan dicatat
+              ke sistem LOOMS sebelum
+              diarahkan ke WhatsApp.
             </p>
+
           </div>
+
         </aside>
+
       </div>
     </main>
   );
