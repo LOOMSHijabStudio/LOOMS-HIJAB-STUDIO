@@ -6,7 +6,7 @@ import { FormEvent, useState } from "react";
 import { useCart } from "@/components/cart/cart-provider";
 
 const money = (value: number) => {
-  return `Rp ${value.toLocaleString("id-ID")}`;
+  return "Rp " + value.toLocaleString("id-ID");
 };
 
 const inputClass =
