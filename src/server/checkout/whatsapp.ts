@@ -1,73 +1,38 @@
 import "server-only";
 
-import { env } from "@/lib/env";
+type WhatsAppItem = {
+  productId?: string | null;
+  variantId?: string | null;
 
-export const loomsWhatsAppNumber =
-  env.NEXT_PUBLIC_LOOMS_WHATSAPP_NUMBER;
-
-/*
- * ============================================
- * TYPES
- * ============================================
- *
- * Kita menerima dua kemungkinan nama field item:
- *
- * 1. Format dari RPC:
- *    productName
- *    variantName
- *    quantity
- *    unitPrice
- *
- * 2. Format snapshot/database lama:
- *    product_name_snapshot
- *    variant_name_snapshot
- *    quantity
- *    unit_price
- *
- * Dengan begini pesan WhatsApp tetap aman
- * walaupun ada data order lama.
- */
-
-type WhatsAppOrderItem = {
-  productName?: string;
-  product_name_snapshot?: string;
-
+  // Bentuk data baru dari RPC
+  productName?: string | null;
   variantName?: string | null;
+  unitPrice?: number | string | null;
+
+  // Bentuk data lama / snapshot database
+  product_name_snapshot?: string | null;
   variant_name_snapshot?: string | null;
+  unit_price?: number | string | null;
 
-  quantity?: number | string;
-
-  unitPrice?: number | string;
-  unit_price?: number | string;
+  quantity?: number | string | null;
+  subtotal?: number | string | null;
 };
 
 type WhatsAppOrder = {
   order: {
+    id: string;
     order_number: string;
-
-    subtotal:
-      | number
-      | string;
-
-    shipping_amount:
-      | number
-      | string;
-
-    total:
-      | number
-      | string;
-
     status: string;
-
-    customer_notes:
-      | string
-      | null;
+    subtotal: number | string;
+    shipping_amount: number | string;
+    total: number | string;
+    customer_notes: string | null;
   };
 
   customer: {
     full_name: string;
     whatsapp_number: string;
-    email?: string | null;
+    email: string | null;
   };
 
   address: {
@@ -78,186 +43,209 @@ type WhatsAppOrder = {
     full_address: string;
   };
 
-  items: WhatsAppOrderItem[];
+  items: WhatsAppItem[];
 };
 
-/*
- * ============================================
- * MONEY FORMAT
- * ============================================
- */
-function money(
-  value: number | string | null | undefined
-): string {
-  const numericValue = Number(value ?? 0);
-
-  if (!Number.isFinite(numericValue)) {
-    return "Rp0";
+function toNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
 
-  return `Rp${numericValue.toLocaleString("id-ID")}`;
+  if (typeof value === "string") {
+    const cleaned = value.replace(/[^\d.-]/g, "");
+    const parsed = Number(cleaned);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return 0;
 }
 
-/*
- * ============================================
- * BUILD WHATSAPP MESSAGE
- * ============================================
- */
-export function buildWhatsAppMessage(
-  order: WhatsAppOrder
-): string {
+function formatRupiah(value: unknown): string {
+  const amount = toNumber(value);
 
-  /*
-   * Buat daftar pesanan.
-   */
-  const lines = order.items
-    .map((item, index) => {
-
-      /*
-       * Ambil nama produk.
-       *
-       * Prioritas:
-       * productName
-       * lalu fallback ke product_name_snapshot
-       */
-      const productName =
-        item.productName ??
-        item.product_name_snapshot ??
-        "-";
-
-      /*
-       * Variant bisa kosong/null.
-       */
-      const variantName =
-        item.variantName ??
-        item.variant_name_snapshot ??
-        "-";
-
-      /*
-       * Quantity.
-       */
-      const quantity =
-        Number(item.quantity ?? 0);
-
-      /*
-       * Unit price.
-       *
-       * Prioritas:
-       * unitPrice
-       * lalu fallback ke unit_price
-       */
-      const unitPrice =
-        Number(
-          item.unitPrice ??
-          item.unit_price ??
-          0
-        );
-
-      /*
-       * Harga tidak boleh NaN.
-       */
-      const safeQuantity =
-        Number.isFinite(quantity)
-          ? quantity
-          : 0;
-
-      const safeUnitPrice =
-        Number.isFinite(unitPrice)
-          ? unitPrice
-          : 0;
-
-      return [
-        `${index + 1}. ${productName}`,
-        `   Variant: ${variantName}`,
-        `   Qty: ${safeQuantity}`,
-        `   Harga: ${money(
-          safeUnitPrice
-        )}`,
-      ].join("\n");
-    })
-    .join("\n\n");
-
-  /*
-   * ==========================================
-   * CUSTOMER EMAIL
-   * ==========================================
-   */
-  const email =
-    order.customer.email?.trim() || "-";
-
-  /*
-   * ==========================================
-   * FINAL MESSAGE
-   * ==========================================
-   */
-  return [
-    "Halo LOOMS, saya ingin melakukan pemesanan.",
-    "",
-    "ORDER LOOMS",
-
-    `Nomor Order: ${order.order.order_number}`,
-
-    "",
-    "Data Customer:",
-
-    `Nama: ${order.customer.full_name}`,
-
-    `WhatsApp: ${order.customer.whatsapp_number}`,
-
-    `Email: ${email}`,
-
-    "",
-    "Pesanan:",
-
-    lines || "Tidak ada item.",
-
-    "",
-    `Subtotal: ${money(
-      order.order.subtotal
-    )}`,
-
-    `Ongkir: ${money(
-      order.order.shipping_amount
-    )}`,
-
-    `Total: ${money(
-      order.order.total
-    )}`,
-
-    "",
-    "Alamat Pengiriman:",
-
-    order.address.full_address,
-
-    order.address.district,
-
-    order.address.city,
-
-    order.address.province,
-
-    order.address.postal_code,
-
-    "",
-    "Catatan:",
-
-    order.order.customer_notes ?? "-",
-
-    "",
-    "Mohon konfirmasi pesanan saya.",
-
-    "Terima kasih.",
-  ].join("\n");
+  return `Rp${Math.round(amount).toLocaleString("id-ID")}`;
 }
 
-/*
- * ============================================
- * BUILD WHATSAPP URL
- * ============================================
- */
+function cleanText(value: unknown, fallback = "-"): string {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const text = value.trim();
+
+  return text || fallback;
+}
+
+function getProductName(item: WhatsAppItem): string {
+  return cleanText(
+    item.productName ?? item.product_name_snapshot,
+    "Produk",
+  );
+}
+
+function getVariantName(item: WhatsAppItem): string {
+  return cleanText(
+    item.variantName ?? item.variant_name_snapshot,
+    "-",
+  );
+}
+
+function getUnitPrice(item: WhatsAppItem): number {
+  return toNumber(item.unitPrice ?? item.unit_price);
+}
+
+function getQuantity(item: WhatsAppItem): number {
+  const quantity = toNumber(item.quantity);
+
+  if (quantity <= 0) {
+    return 1;
+  }
+
+  return Math.floor(quantity);
+}
+
+function normalizeWhatsAppNumber(value: string): string {
+  let number = value.replace(/\D/g, "");
+
+  if (!number) {
+    return "6281558066629";
+  }
+
+  // 08xxxxxxxx -> 628xxxxxxxx
+  if (number.startsWith("08")) {
+    number = `62${number.slice(1)}`;
+  }
+
+  // +62xxxxxxxx -> 62xxxxxxxx
+  if (number.startsWith("620")) {
+    number = `62${number.slice(3)}`;
+  }
+
+  return number;
+}
+
+export function buildWhatsAppMessage(order: WhatsAppOrder): string {
+  const orderNumber = cleanText(order.order?.order_number, "-");
+
+  const customerName = cleanText(
+    order.customer?.full_name,
+    "-",
+  );
+
+  const customerWhatsApp = cleanText(
+    order.customer?.whatsapp_number,
+    "-",
+  );
+
+  const customerEmail = cleanText(
+    order.customer?.email,
+    "-",
+  );
+
+  const province = cleanText(
+    order.address?.province,
+    "-",
+  );
+
+  const city = cleanText(
+    order.address?.city,
+    "-",
+  );
+
+  const district = cleanText(
+    order.address?.district,
+    "-",
+  );
+
+  const postalCode = cleanText(
+    order.address?.postal_code,
+    "-",
+  );
+
+  const fullAddress = cleanText(
+    order.address?.full_address,
+    "-",
+  );
+
+  const items = Array.isArray(order.items)
+    ? order.items
+    : [];
+
+  const subtotal = toNumber(order.order?.subtotal);
+  const shipping = toNumber(order.order?.shipping_amount);
+  const total = toNumber(order.order?.total);
+
+  const lines: string[] = [];
+
+  lines.push("Halo LOOMS, saya ingin konfirmasi pesanan.");
+  lines.push("");
+  lines.push(`Order: ${orderNumber}`);
+  lines.push("");
+  lines.push("DATA CUSTOMER");
+  lines.push(`Nama: ${customerName}`);
+  lines.push(`WhatsApp: ${customerWhatsApp}`);
+  lines.push(`Email: ${customerEmail}`);
+  lines.push("");
+  lines.push("ALAMAT PENGIRIMAN");
+  lines.push(`Provinsi: ${province}`);
+  lines.push(`Kota: ${city}`);
+  lines.push(`Kecamatan: ${district}`);
+  lines.push(`Kode Pos: ${postalCode}`);
+  lines.push(`Alamat: ${fullAddress}`);
+  lines.push("");
+  lines.push("PESANAN");
+
+  if (items.length === 0) {
+    lines.push("1. Tidak ada item");
+  } else {
+    items.forEach((item, index) => {
+      const productName = getProductName(item);
+      const variantName = getVariantName(item);
+      const quantity = getQuantity(item);
+      const unitPrice = getUnitPrice(item);
+
+      lines.push(`${index + 1}. ${productName}`);
+      lines.push(`   Variant: ${variantName}`);
+      lines.push(`   Qty: ${quantity}`);
+      lines.push(`   Harga: ${formatRupiah(unitPrice)}`);
+    });
+  }
+
+  lines.push("");
+  lines.push("RINGKASAN PEMBAYARAN");
+  lines.push(`Subtotal: ${formatRupiah(subtotal)}`);
+  lines.push(`Ongkir: ${formatRupiah(shipping)}`);
+  lines.push(`Total: ${formatRupiah(total)}`);
+
+  const notes = cleanText(
+    order.order?.customer_notes,
+    "",
+  );
+
+  if (notes) {
+    lines.push("");
+    lines.push("CATATAN");
+    lines.push(notes);
+  }
+
+  lines.push("");
+  lines.push("Terima kasih.");
+
+  return lines.join("\n");
+}
+
 export function buildWhatsAppUrl(
-  message: string
+  message: string,
+  phoneNumber?: string,
 ): string {
-  return `https://wa.me/${loomsWhatsAppNumber}?text=${encodeURIComponent(
-    message
-  )}`;
+  const number = normalizeWhatsAppNumber(
+    phoneNumber ||
+      process.env.NEXT_PUBLIC_LOOMS_WHATSAPP_NUMBER ||
+      "6281558066629",
+  );
+
+  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
 }
