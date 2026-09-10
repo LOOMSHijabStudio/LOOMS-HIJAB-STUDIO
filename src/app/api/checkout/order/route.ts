@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createHash } from "node:crypto";
 
 import { createOrder } from "@/server/checkout/order";
 
@@ -66,21 +65,13 @@ function getPositiveInteger(
   return numberValue;
 }
 
-function createRequestHash(
-  input: unknown
-): string {
-  return createHash("sha256")
-    .update(JSON.stringify(input))
-    .digest("hex");
-}
-
 export async function POST(
   request: Request
 ) {
   try {
     /*
      * ==========================================
-     * 1. READ REQUEST
+     * 1. BACA REQUEST
      * ==========================================
      */
 
@@ -116,7 +107,7 @@ export async function POST(
 
     /*
      * ==========================================
-     * 2. ROOT DATA
+     * 2. AMBIL DATA UTAMA
      * ==========================================
      */
 
@@ -127,14 +118,12 @@ export async function POST(
       );
 
     const rawItems = body.items;
-
     const rawCustomer = body.customer;
-
     const rawAddress = body.address;
 
     /*
      * ==========================================
-     * 3. BASIC VALIDATION
+     * 3. VALIDASI DASAR
      * ==========================================
      */
 
@@ -207,20 +196,23 @@ export async function POST(
      * ==========================================
      */
 
-    const fullName = getString(
-      rawCustomer,
-      "fullName"
-    );
+    const fullName =
+      getString(
+        rawCustomer,
+        "fullName"
+      );
 
-    const whatsappNumber = getString(
-      rawCustomer,
-      "whatsappNumber"
-    );
+    const whatsappNumber =
+      getString(
+        rawCustomer,
+        "whatsappNumber"
+      );
 
-    const email = getOptionalString(
-      rawCustomer,
-      "email"
-    );
+    const email =
+      getOptionalString(
+        rawCustomer,
+        "email"
+      );
 
     if (!fullName) {
       return NextResponse.json(
@@ -254,35 +246,41 @@ export async function POST(
      * ==========================================
      */
 
-    const province = getString(
-      rawAddress,
-      "province"
-    );
+    const province =
+      getString(
+        rawAddress,
+        "province"
+      );
 
-    const city = getString(
-      rawAddress,
-      "city"
-    );
+    const city =
+      getString(
+        rawAddress,
+        "city"
+      );
 
-    const district = getString(
-      rawAddress,
-      "district"
-    );
+    const district =
+      getString(
+        rawAddress,
+        "district"
+      );
 
-    const postalCode = getString(
-      rawAddress,
-      "postalCode"
-    );
+    const postalCode =
+      getString(
+        rawAddress,
+        "postalCode"
+      );
 
-    const fullAddress = getString(
-      rawAddress,
-      "fullAddress"
-    );
+    const fullAddress =
+      getString(
+        rawAddress,
+        "fullAddress"
+      );
 
-    const notes = getOptionalString(
-      rawAddress,
-      "notes"
-    );
+    const notes =
+      getOptionalString(
+        rawAddress,
+        "notes"
+      );
 
     if (!province) {
       return NextResponse.json(
@@ -375,10 +373,11 @@ export async function POST(
         );
       }
 
-      const productId = getString(
-        rawItem,
-        "productId"
-      );
+      const productId =
+        getString(
+          rawItem,
+          "productId"
+        );
 
       const variantId =
         getOptionalString(
@@ -429,7 +428,7 @@ export async function POST(
 
     /*
      * ==========================================
-     * 7. CREATE CLEAN CHECKOUT INPUT
+     * 7. CHECKOUT INPUT
      * ==========================================
      */
 
@@ -456,29 +455,21 @@ export async function POST(
 
     /*
      * ==========================================
-     * 8. REQUEST HASH
+     * 8. CREATE ORDER
      * ==========================================
+     *
+     * createOrder() di project ini
+     * menerima SATU argument.
      */
 
-    const requestHash =
-      createRequestHash(
+    const result =
+      await createOrder(
         checkoutInput
       );
 
     /*
      * ==========================================
-     * 9. CREATE ORDER
-     * ==========================================
-     */
-
-    const result = await createOrder(
-      checkoutInput,
-      requestHash
-    );
-
-    /*
-     * ==========================================
-     * 10. SUCCESS RESPONSE
+     * 9. SUCCESS
      * ==========================================
      */
 
@@ -489,12 +480,6 @@ export async function POST(
         result.whatsappUrl,
     });
   } catch (error) {
-    /*
-     * ==========================================
-     * SERVER ERROR
-     * ==========================================
-     */
-
     console.error(
       "Checkout API error:",
       error
