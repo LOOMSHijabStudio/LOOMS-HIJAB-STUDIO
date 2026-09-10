@@ -5,8 +5,9 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useCart } from "@/components/cart/cart-provider";
 
-const money = (value: number) =>
-  `Rp ${value.toLocaleString("id-ID")}`;
+const money = (value: number) => {
+  return `Rp ${value.toLocaleString("id-ID")}`;
+};
 
 const inputClass =
   "w-full border border-looms-teal/20 bg-white px-3 py-3 text-sm outline-none transition focus:border-looms-teal";
