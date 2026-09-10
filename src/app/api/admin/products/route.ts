@@ -39,14 +39,19 @@ interface ProductListResponse {
 /**
  * GET /api/admin/products
  *
- * Mengambil semua produk admin dari Supabase.
+ * Mengambil semua produk untuk Admin.
  *
- * Sekaligus mengambil placement:
- * HOME
- * SHOP
- * NEW_ARRIVALS
- * COLLECTION
- * BEST_SELLERS
+ * Data utama:
+ * - products
+ * - product_images
+ * - product_placements
+ *
+ * Placement:
+ * - HOME
+ * - SHOP
+ * - NEW_ARRIVALS
+ * - COLLECTION
+ * - BEST_SELLERS
  */
 export async function GET(
   request: NextRequest
@@ -55,6 +60,7 @@ export async function GET(
     // =====================================================
     // 1. VERIFY ADMIN
     // =====================================================
+
     const verification = await verifyAdminRequest();
 
     if (!verification.success) {
@@ -74,8 +80,9 @@ export async function GET(
     }
 
     // =====================================================
-    // 2. FALLBACK LOCAL
+    // 2. LOCAL FALLBACK
     // =====================================================
+
     if (!isSupabaseConfigured()) {
       const localProducts = getLocalProducts();
 
@@ -85,21 +92,32 @@ export async function GET(
           name: product.name,
           sku: product.sku,
           price: Number(product.price),
+
           sale_price:
             product.sale_price !== null &&
             product.sale_price !== undefined
               ? Number(product.sale_price)
               : null,
+
           stock: Number(product.stock || 0),
+
           status: product.status,
+
           is_featured: Boolean(product.is_featured),
+
           image: product.image,
+
           description: product.description || "",
+
           material: product.material || "",
+
           availability:
             product.availability || "regular",
+
           created_at: product.created_at,
+
           updated_at: product.updated_at,
+
           placements: [],
         }));
 
@@ -113,6 +131,7 @@ export async function GET(
     // =====================================================
     // 3. SUPABASE CLIENT
     // =====================================================
+
     const client = createSupabaseServiceClient();
 
     const searchParams = request.nextUrl.searchParams;
@@ -143,6 +162,7 @@ export async function GET(
     // =====================================================
     // 4. PRODUCTS QUERY
     // =====================================================
+
     let query = client
       .from("products")
       .select(
@@ -172,15 +192,17 @@ export async function GET(
       );
 
     // =====================================================
-    // 5. FILTER STATUS
+    // 5. STATUS FILTER
     // =====================================================
+
     if (status) {
       query = query.eq("status", status);
     }
 
     // =====================================================
-    // 6. SEARCH
+    // 6. SEARCH FILTER
     // =====================================================
+
     if (search) {
       query = query.or(
         `name.ilike.%${search}%,sku.ilike.%${search}%`
@@ -190,6 +212,7 @@ export async function GET(
     // =====================================================
     // 7. EXECUTE PRODUCTS QUERY
     // =====================================================
+
     const {
       data: products,
       error: productsError,
@@ -216,19 +239,18 @@ export async function GET(
     }
 
     // =====================================================
-    // 8. PRODUCT IDS
+    // 8. GET PRODUCT IDS
     // =====================================================
+
     const productIds = (products || []).map(
       (product) => product.id
     );
 
     // =====================================================
-    // 9. GET PLACEMENTS
+    // 9. GET PRODUCT PLACEMENTS
     // =====================================================
-    const placementMap = new Map<
-      string,
-      string[]
-    >();
+
+    const placementMap = new Map<string, string[]>();
 
     if (productIds.length > 0) {
       const {
@@ -236,12 +258,7 @@ export async function GET(
         error: placementsError,
       } = await client
         .from("product_placements")
-        .select(
-          `
-          product_id,
-          placement
-        `
-        )
+        .select("product_id, placement")
         .in("product_id", productIds);
 
       if (placementsError) {
@@ -253,35 +270,29 @@ export async function GET(
         return NextResponse.json(
           {
             success: false,
-            error:
-              placementsError.message,
+            error: placementsError.message,
           },
           { status: 500 }
         );
       }
 
-      for (const placementRow of placementsData || []) {
-        const productId =
-          placementRow.product_id;
+      for (const row of placementsData || []) {
+        const productId = row.product_id;
+        const placement = row.placement;
 
-        const placement =
-          placementRow.placement;
-
-        const currentPlacements =
+        const existing =
           placementMap.get(productId) || [];
 
-        currentPlacements.push(placement);
+        existing.push(placement);
 
-        placementMap.set(
-          productId,
-          currentPlacements
-        );
+        placementMap.set(productId, existing);
       }
     }
 
     // =====================================================
     // 10. FORMAT PRODUCTS
     // =====================================================
+
     const formattedProducts: ProductResponse[] =
       (products || []).map((product) => {
         const images =
@@ -293,6 +304,7 @@ export async function GET(
         // -------------------------------------------------
         // Cari gambar utama
         // -------------------------------------------------
+
         const primaryImage =
           images.find(
             (image) => image.is_primary
@@ -303,25 +315,28 @@ export async function GET(
         // -------------------------------------------------
         // Default image
         // -------------------------------------------------
+
         let imageUrl =
           "/images/editorial-mocha.svg";
 
         // -------------------------------------------------
-        // Supabase Storage public URL
+        // Supabase Storage URL
         // -------------------------------------------------
+
         if (primaryImage) {
           const { data } =
             client.storage
               .from("product-images")
-              .getPublicUrl(
-                primaryImage
-              );
+              .getPublicUrl(primaryImage);
 
           if (data?.publicUrl) {
-            imageUrl =
-              data.publicUrl;
+            imageUrl = data.publicUrl;
           }
         }
+
+        // -------------------------------------------------
+        // Return product
+        // -------------------------------------------------
 
         return {
           id: product.id,
@@ -330,49 +345,32 @@ export async function GET(
 
           sku: product.sku,
 
-          price: Number(
-            product.price
-          ),
+          price: Number(product.price),
 
           sale_price:
-            product.sale_price !==
-              null &&
-            product.sale_price !==
-              undefined
-              ? Number(
-                  product.sale_price
-                )
+            product.sale_price !== null &&
+            product.sale_price !== undefined
+              ? Number(product.sale_price)
               : null,
 
-          stock: Number(
-            product.stock || 0
+          stock: Number(product.stock || 0),
+
+          status: product.status,
+
+          is_featured: Boolean(
+            product.is_featured
           ),
-
-          status:
-            product.status,
-
-          is_featured:
-            Boolean(
-              product.is_featured
-            ),
 
           image: imageUrl,
 
           description:
-            product.description ||
-            "",
+            product.description || "",
 
           material:
-            product.material ||
-            "",
+            product.material || "",
 
-          // =================================================
-          // PENTING:
-          // availability wajib ada karena ManagedProduct
-          // =================================================
           availability:
-            product.availability ||
-            "regular",
+            product.availability || "regular",
 
           created_at:
             product.created_at,
@@ -380,27 +378,20 @@ export async function GET(
           updated_at:
             product.updated_at,
 
-          // =================================================
-          // PENTING:
-          // placement digunakan Admin New Arrivals /
-          // Best Sellers
-          // =================================================
           placements:
-            placementMap.get(
-              product.id
-            ) || [],
+            placementMap.get(product.id) || [],
         };
       });
 
     // =====================================================
     // 11. RESPONSE
     // =====================================================
+
     return NextResponse.json({
       success: true,
       products: formattedProducts,
       total:
-        count ??
-        formattedProducts.length,
+        count ?? formattedProducts.length,
     });
   } catch (error) {
     console.error(
@@ -433,6 +424,7 @@ export async function POST(
     // =====================================================
     // 1. VERIFY ADMIN
     // =====================================================
+
     const verification =
       await verifyAdminRequest();
 
@@ -456,11 +448,13 @@ export async function POST(
     // =====================================================
     // 2. READ BODY
     // =====================================================
+
     const body = await request.json();
 
     // =====================================================
     // 3. VALIDATION
     // =====================================================
+
     if (
       !body.name ||
       body.price === undefined ||
@@ -479,6 +473,7 @@ export async function POST(
     // =====================================================
     // 4. SLUG
     // =====================================================
+
     const slug =
       body.slug ||
       String(body.name)
@@ -489,6 +484,7 @@ export async function POST(
     // =====================================================
     // 5. SKU
     // =====================================================
+
     const sku =
       body.sku ||
       `LMS-${slug
@@ -500,13 +496,14 @@ export async function POST(
     // =====================================================
     // 6. AVAILABILITY
     // =====================================================
+
     const availability =
-      body.availability ||
-      "regular";
+      body.availability || "regular";
 
     // =====================================================
     // 7. LOCAL FALLBACK
     // =====================================================
+
     if (!isSupabaseConfigured()) {
       const newProduct =
         addLocalProduct({
@@ -516,55 +513,40 @@ export async function POST(
 
           sku,
 
-          price: Number(
-            body.price
-          ),
+          price: Number(body.price),
 
           sale_price:
-            body.sale_price !==
-              undefined &&
-            body.sale_price !==
-              null &&
+            body.sale_price !== undefined &&
+            body.sale_price !== null &&
             body.sale_price !== ""
-              ? Number(
-                  body.sale_price
-                )
+              ? Number(body.sale_price)
               : null,
 
-          stock: Number(
-            body.stock || 0
-          ),
+          stock: Number(body.stock || 0),
 
           status:
-            body.status ||
-            "ACTIVE",
+            body.status || "ACTIVE",
 
           is_featured:
-            Boolean(
-              body.is_featured
-            ),
+            Boolean(body.is_featured),
 
           image:
             body.image ||
             "/images/editorial-sand.svg",
 
           description:
-            body.description ||
-            "",
+            body.description || "",
 
           material:
-            body.material ||
-            "",
+            body.material || "",
 
-          // =================================================
-          // WAJIB
-          // =================================================
           availability,
         });
 
-      // ===================================================
-      // AUDIT LOG
-      // ===================================================
+      // -------------------------------------------------
+      // Audit log
+      // -------------------------------------------------
+
       await logAuditEvent({
         action:
           "admin.product_created",
@@ -601,12 +583,14 @@ export async function POST(
     // =====================================================
     // 8. SUPABASE CLIENT
     // =====================================================
+
     const client =
       createSupabaseServiceClient();
 
     // =====================================================
     // 9. INSERT PRODUCT
     // =====================================================
+
     const {
       data: newProduct,
       error: insertError,
@@ -619,52 +603,55 @@ export async function POST(
 
         sku,
 
-        price: Number(
-          body.price
-        ),
+        price: Number(body.price),
 
         sale_price:
-          body.sale_price !==
-            undefined &&
-          body.sale_price !==
-            null &&
+          body.sale_price !== undefined &&
+          body.sale_price !== null &&
           body.sale_price !== ""
-            ? Number(
-                body.sale_price
-              )
+            ? Number(body.sale_price)
             : null,
 
-        stock: Number(
-          body.stock || 0
-        ),
+        stock: Number(body.stock || 0),
 
         status:
-          body.status ||
-          "ACTIVE",
+          body.status || "ACTIVE",
 
         availability,
 
         description:
-          body.description ||
-          null,
+          body.description || null,
 
         material:
-          body.material ||
-          null,
+          body.material || null,
 
         is_featured:
-          Boolean(
-            body.is_featured
-          ),
+          Boolean(body.is_featured),
       })
       .select(
-        "id, name, slug, sku, price, sale_price, stock, status, availability, description, material, is_featured, created_at, updated_at"
+        `
+        id,
+        name,
+        slug,
+        sku,
+        price,
+        sale_price,
+        stock,
+        status,
+        availability,
+        description,
+        material,
+        is_featured,
+        created_at,
+        updated_at
+      `
       )
       .single();
 
     // =====================================================
     // 10. INSERT ERROR
     // =====================================================
+
     if (
       insertError ||
       !newProduct
@@ -688,6 +675,7 @@ export async function POST(
     // =====================================================
     // 11. AUDIT LOG
     // =====================================================
+
     await logAuditEvent({
       action:
         "admin.product_created",
@@ -713,6 +701,7 @@ export async function POST(
     // =====================================================
     // 12. RESPONSE
     // =====================================================
+
     return NextResponse.json(
       {
         success: true,
