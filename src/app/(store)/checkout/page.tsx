@@ -79,18 +79,6 @@ export default function CheckoutPage() {
   });
 
   /*
-   * LOOMS SOCIETY
-   *
-   * Semua field optional.
-   */
-  const [societyReview, setSocietyReview] =
-    useState({
-      name: "",
-      rating: null as number | null,
-      notes: "",
-    });
-
-  /*
    * Ongkir untuk tampilan checkout.
    */
   const shipping =
@@ -105,16 +93,6 @@ export default function CheckoutPage() {
     value: string
   ) {
     setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  function updateSocietyReview(
-    field: "name" | "rating" | "notes",
-    value: string | number | null
-  ) {
-    setSocietyReview((current) => ({
       ...current,
       [field]: value,
     }));
@@ -231,71 +209,6 @@ export default function CheckoutPage() {
         result?.orderId ||
         result?.order?.id ||
         null;
-
-      /*
-       * ==========================================
-       * 3. LOOMS SOCIETY REVIEW
-       * ==========================================
-       */
-
-      const hasSocietyReview =
-        societyReview.name.trim() !== "" ||
-        societyReview.notes.trim() !== "" ||
-        societyReview.rating !== null;
-
-      if (hasSocietyReview) {
-        try {
-          const reviewResponse =
-            await fetch(
-              "/api/society/reviews",
-              {
-                method: "POST",
-
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-
-                body: JSON.stringify({
-                  orderId,
-
-                  name:
-                    societyReview.name.trim() ||
-                    null,
-
-                  rating:
-                    societyReview.rating,
-
-                  notes:
-                    societyReview.notes.trim() ||
-                    null,
-                }),
-              }
-            );
-
-          const reviewResult =
-            await reviewResponse.json();
-
-          /*
-           * Review gagal tidak boleh
-           * menggagalkan order.
-           */
-          if (
-            !reviewResponse.ok ||
-            !reviewResult.success
-          ) {
-            console.error(
-              "Looms Society review gagal:",
-              reviewResult
-            );
-          }
-        } catch (reviewError) {
-          console.error(
-            "Looms Society review error:",
-            reviewError
-          );
-        }
-      }
 
       /*
        * ==========================================
@@ -587,126 +500,6 @@ export default function CheckoutPage() {
           </section>
 
           {/* ================================= */}
-          {/* LOOMS SOCIETY */}
-          {/* ================================= */}
-
-          <section className="border border-looms-teal/10 bg-looms-cream/30 p-6">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-looms-teal">
-                THE LOOMS COMMUNITY
-              </p>
-
-              <h2 className="mt-2 font-display text-3xl text-looms-teal">
-                Looms Society
-              </h2>
-
-              <p className="mt-3 text-sm leading-7 text-looms-gray">
-                Share your experience with LOOMS.
-                Semua bagian di bawah ini optional.
-              </p>
-            </div>
-
-            <div className="mt-6 space-y-5">
-              {/* NAME */}
-
-              <label className="block text-sm">
-                Nama{" "}
-                <span className="text-looms-gray">
-                  (optional)
-                </span>
-
-                <input
-                  value={societyReview.name}
-                  onChange={(event) =>
-                    updateSocietyReview(
-                      "name",
-                      event.target.value
-                    )
-                  }
-                  className={`${inputClass} mt-2`}
-                  placeholder="Nama kamu"
-                />
-              </label>
-
-              {/* RATING */}
-
-              <div>
-                <p className="text-sm">
-                  Rating{" "}
-                  <span className="text-looms-gray">
-                    (optional)
-                  </span>
-                </p>
-
-                <div className="mt-3 flex gap-2">
-                  {[1, 2, 3, 4, 5].map(
-                    (star) => {
-                      const active =
-                        societyReview.rating !==
-                          null &&
-                        star <=
-                          societyReview.rating;
-
-                      return (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() =>
-                            updateSocietyReview(
-                              "rating",
-                              active
-                                ? null
-                                : star
-                            )
-                          }
-                          className={`text-3xl leading-none transition ${
-                            active
-                              ? "text-looms-teal"
-                              : "text-gray-300 hover:text-looms-teal/60"
-                          }`}
-                          aria-label={`Rating ${star} dari 5`}
-                        >
-                          ★
-                        </button>
-                      );
-                    }
-                  )}
-                </div>
-              </div>
-
-              {/* REVIEW */}
-
-              <label className="block text-sm">
-                Review / Notes{" "}
-                <span className="text-looms-gray">
-                  (optional)
-                </span>
-
-                <textarea
-                  rows={4}
-                  value={
-                    societyReview.notes
-                  }
-                  onChange={(event) =>
-                    updateSocietyReview(
-                      "notes",
-                      event.target.value
-                    )
-                  }
-                  className={`${inputClass} mt-2`}
-                  placeholder="Ceritakan pengalaman kamu dengan LOOMS..."
-                />
-              </label>
-
-              <p className="text-xs leading-6 text-looms-gray">
-                Dengan mengisi review, kamu
-                mengizinkan review tersebut tampil di
-                halaman Looms Society.
-              </p>
-            </div>
-          </section>
-
-          {/* ================================= */}
           {/* ERROR */}
           {/* ================================= */}
 
@@ -737,10 +530,7 @@ export default function CheckoutPage() {
           </button>
 
           <p className="text-center text-xs leading-6 text-looms-gray">
-            Your order will be saved first,
-            then your review will be saved to
-            Looms Society, and finally you will
-            be redirected to WhatsApp.
+            Your order will be saved first, then you will be redirected to WhatsApp.    
           </p>
         </form>
 
@@ -820,10 +610,7 @@ export default function CheckoutPage() {
 
           <div className="mt-6 border border-looms-teal/10 bg-looms-cream/40 px-4 py-4">
             <p className="text-xs leading-6 text-looms-gray">
-              Order kamu akan dicatat ke sistem
-              LOOMS terlebih dahulu. Jika kamu
-              mengisi Looms Society, review juga
-              akan disimpan sebelum WhatsApp dibuka.
+              Order kamu akan dicatat ke sistem LOOMS terlebih dahulu, kemudian kamu akan diarahkan ke WhatsApp.
             </p>
           </div>
         </aside>
