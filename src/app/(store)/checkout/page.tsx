@@ -426,7 +426,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="email@example.com"
                 />
               </label>
@@ -491,7 +491,7 @@ export default function CheckoutPage() {
                         event.target.value
                       )
                     }
-                    className={`${inputClass} mt-2`}
+                    className={inputClass + " mt-2"}
                   >
                     <option value="">
                       Select city / regency
@@ -523,7 +523,7 @@ export default function CheckoutPage() {
                         event.target.value
                       )
                     }
-                    className={`${inputClass} mt-2`}
+                    className={inputClass + " mt-2"}
                     placeholder="Kota / Kabupaten"
                   />
                 )}
@@ -543,7 +543,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="Kecamatan"
                 />
               </label>
@@ -563,7 +563,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="Kode pos"
                 />
               </label>
@@ -585,7 +585,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="Alamat lengkap..."
                 />
               </label>
@@ -666,7 +666,7 @@ export default function CheckoutPage() {
 
               return (
                 <div
-                  key={`${item.productId}-${item.variantId}`}
+                  key={item.productId + "-" + item.variantId}
                   className="flex justify-between gap-4 text-sm"
                 >
                   <div>
