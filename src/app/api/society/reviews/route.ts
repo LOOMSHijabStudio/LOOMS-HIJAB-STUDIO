@@ -1,35 +1,63 @@
-import { NextRequest, NextResponse } from "next/server";
-
+import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+function cleanString(
+  value: unknown,
+  fallback: string | null = null
+): string | null {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const cleaned = value.trim();
+
+  return cleaned ? cleaned : fallback;
+}
+
+function normalizeRating(
+  value: unknown
+): number | null {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const rating = Number(value);
+
+  if (!Number.isInteger(rating)) {
+    return null;
+  }
+
+  if (rating < 1 || rating > 5) {
+    return null;
+  }
+
+  return rating;
+}
+
 /*
- * =========================================================
  * GET
- * =========================================================
- *
- * Mengambil review yang boleh tampil di Looms Society.
+ * Dipakai halaman Looms Society
  */
 export async function GET() {
   try {
-    const client =
-      createSupabaseServiceClient();
+    const client = createSupabaseServiceClient();
 
     const {
       data,
       error,
     } = await client
       .from("looms_society_reviews")
-      .select(
-        `
-          id,
-          name,
-          rating,
-          notes,
-          created_at
-        `
-      )
+      .select(`
+        id,
+        order_id,
+        name,
+        rating,
+        notes,
+        is_public,
+        created_at
+      `)
       .eq("is_public", true)
       .order("created_at", {
         ascending: false,
@@ -44,10 +72,11 @@ export async function GET() {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Gagal mengambil review Looms Society",
+          error: error.message,
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -65,130 +94,59 @@ export async function GET() {
       {
         success: false,
         error:
-          "Gagal mengambil review Looms Society",
+          error instanceof Error
+            ? error.message
+            : "Failed to load reviews",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
 
 /*
- * =========================================================
  * POST
- * =========================================================
- *
- * Menyimpan review setelah order berhasil dibuat.
- *
- * Semua field review bersifat opsional.
+ * Dipakai checkout untuk menyimpan review
  */
 export async function POST(
-  request: NextRequest
+  request: Request
 ) {
   try {
-    const body =
-      await request.json();
+    const body = await request.json();
 
-    const orderId =
-      typeof body.orderId === "string"
-        ? body.orderId.trim()
-        : "";
+    const orderId = cleanString(body?.orderId);
+    const name = cleanString(body?.name);
+    const notes = cleanString(body?.notes);
+    const rating = normalizeRating(body?.rating);
 
-    const name =
-      typeof body.name === "string"
-        ? body.name.trim()
-        : "";
-
-    const notes =
-      typeof body.notes === "string"
-        ? body.notes.trim()
-        : "";
-
-    const rawRating = body.rating;
-
-    const rating =
-      rawRating === null ||
-      rawRating === undefined ||
-      rawRating === ""
-        ? null
-        : Number(rawRating);
-
-    /*
-     * Tidak ada isi review sama sekali.
-     *
-     * Ini tetap dianggap valid, tetapi
-     * biasanya frontend tidak akan memanggil API
-     * kalau semuanya kosong.
-     */
-    if (
-      !orderId &&
-      !name &&
-      !notes &&
-      rating === null
-    ) {
-      return NextResponse.json({
-        success: true,
-        skipped: true,
-      });
-    }
-
-    /*
-     * Order ID wajib supaya review terhubung
-     * dengan order yang benar.
-     */
     if (!orderId) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Order ID tidak ditemukan",
+          error: "Order ID wajib diisi.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
     /*
-     * Validasi rating.
+     * Minimal salah satu dari:
+     * nama / rating / review
+     * harus diisi.
      */
-    if (
-      rating !== null &&
-      (
-        !Number.isInteger(rating) ||
-        rating < 1 ||
-        rating > 5
-      )
-    ) {
+    if (!name && !notes && rating === null) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Rating harus antara 1 sampai 5",
+            "Review kosong. Isi nama, rating, atau review.",
         },
-        { status: 400 }
-      );
-    }
-
-    /*
-     * Batasi panjang input.
-     */
-    if (name.length > 100) {
-      return NextResponse.json(
         {
-          success: false,
-          error:
-            "Nama terlalu panjang",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (notes.length > 2000) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Review terlalu panjang",
-        },
-        { status: 400 }
+          status: 400,
+        }
       );
     }
 
@@ -216,10 +174,11 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Gagal memeriksa pesanan",
+          error: orderError.message,
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -227,126 +186,61 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Pesanan tidak ditemukan",
+          error: "Order tidak ditemukan.",
         },
-        { status: 404 }
-      );
-    }
-
-    /*
-     * Cek apakah order sudah pernah memberi review.
-     */
-    const {
-      data: existingReview,
-      error: existingError,
-    } = await client
-      .from("looms_society_reviews")
-      .select("id")
-      .eq("order_id", orderId)
-      .maybeSingle();
-
-    if (existingError) {
-      console.error(
-        "Looms Society existing review error:",
-        existingError
-      );
-
-      return NextResponse.json(
         {
-          success: false,
-          error:
-            "Gagal memeriksa review",
-        },
-        { status: 500 }
+          status: 404,
+        }
       );
     }
 
     /*
-     * Kalau sudah ada → update.
-     *
-     * Kalau belum ada → insert.
-     */
-    if (existingReview) {
-      const {
-        data,
-        error,
-      } = await client
-        .from("looms_society_reviews")
-        .update({
-          name:
-            name || null,
-
-          rating,
-
-          notes:
-            notes || null,
-
-          is_public: true,
-        })
-        .eq("id", existingReview.id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error(
-          "Looms Society update error:",
-          error
-        );
-
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Gagal memperbarui review",
-          },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({
-        success: true,
-        review: data,
-      });
-    }
-
-    /*
-     * Review baru.
+     * Satu order = satu review.
+     * Kalau order yang sama mengirim lagi,
+     * review akan diperbarui.
      */
     const {
       data,
       error,
     } = await client
       .from("looms_society_reviews")
-      .insert({
-        order_id: orderId,
-
-        name:
-          name || null,
-
+      .upsert(
+        {
+          order_id: orderId,
+          name,
+          rating,
+          notes,
+          is_public: true,
+        },
+        {
+          onConflict: "order_id",
+        }
+      )
+      .select(`
+        id,
+        order_id,
+        name,
         rating,
-
-        notes:
-          notes || null,
-
-        is_public: true,
-      })
-      .select()
+        notes,
+        is_public,
+        created_at
+      `)
       .single();
 
     if (error) {
       console.error(
-        "Looms Society insert error:",
+        "Looms Society POST error:",
         error
       );
 
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Gagal menyimpan review",
+          error: error.message,
         },
-        { status: 500 }
+        {
+          status: 500,
+        }
       );
     }
 
@@ -364,9 +258,13 @@ export async function POST(
       {
         success: false,
         error:
-          "Gagal menyimpan review Looms Society",
+          error instanceof Error
+            ? error.message
+            : "Failed to save review",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
