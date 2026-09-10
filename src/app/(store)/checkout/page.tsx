@@ -1,3 +1,4 @@
+```tsx
 "use client";
 
 import Link from "next/link";
@@ -57,6 +58,49 @@ const shippingRates: Record<string, number> = {
   "Papua Barat Daya": 70000,
 };
 
+/*
+ * Kota / Kabupaten khusus Jawa Barat.
+ *
+ * Cirebon dan Indramayu mendapatkan ongkir Rp5.000.
+ * Jawa Barat lainnya Rp10.000.
+ */
+const westJavaCities = [
+  "Kabupaten Bandung",
+  "Kabupaten Bandung Barat",
+  "Kabupaten Bekasi",
+  "Kabupaten Bogor",
+  "Kabupaten Ciamis",
+  "Kabupaten Cianjur",
+  "Kabupaten Cirebon",
+  "Kabupaten Garut",
+  "Kabupaten Indramayu",
+  "Kabupaten Karawang",
+  "Kabupaten Kuningan",
+  "Kabupaten Majalengka",
+  "Kabupaten Pangandaran",
+  "Kabupaten Purwakarta",
+  "Kabupaten Subang",
+  "Kabupaten Sukabumi",
+  "Kabupaten Sumedang",
+  "Kabupaten Tasikmalaya",
+
+  "Kota Bandung",
+  "Kota Banjar",
+  "Kota Bekasi",
+  "Kota Bogor",
+  "Kota Cimahi",
+  "Kota Cirebon",
+  "Kota Depok",
+  "Kota Sukabumi",
+  "Kota Tasikmalaya",
+];
+
+const specialWestJavaCities = new Set([
+  "Kabupaten Cirebon",
+  "Kota Cirebon",
+  "Kabupaten Indramayu",
+]);
+
 export default function CheckoutPage() {
   const { items, subtotal } = useCart();
 
@@ -79,14 +123,31 @@ export default function CheckoutPage() {
   });
 
   /*
-   * Ongkir untuk tampilan checkout.
+   * ==========================================
+   * SHIPPING
+   * ==========================================
+   *
+   * Gratis ongkir jika subtotal >= Rp500.000.
+   *
+   * Jawa Barat:
+   * - Kota Cirebon = Rp5.000
+   * - Kabupaten Cirebon = Rp5.000
+   * - Kabupaten Indramayu = Rp5.000
+   * - Jawa Barat lainnya = Rp10.000
+   *
+   * Provinsi lain mengikuti shippingRates.
    */
+
   const shipping =
     subtotal >= 500000
       ? 0
-      : form.province
-        ? shippingRates[form.province] ?? 15000
-        : 0;
+      : form.province === "Jawa Barat"
+        ? specialWestJavaCities.has(form.city)
+          ? 5000
+          : 10000
+        : form.province
+          ? shippingRates[form.province] ?? 15000
+          : 0;
 
   function update(
     field: keyof typeof form,
@@ -95,6 +156,14 @@ export default function CheckoutPage() {
     setForm((current) => ({
       ...current,
       [field]: value,
+    }));
+  }
+
+  function updateProvince(value: string) {
+    setForm((current) => ({
+      ...current,
+      province: value,
+      city: "",
     }));
   }
 
@@ -197,12 +266,6 @@ export default function CheckoutPage() {
        * ==========================================
        * 2. AMBIL ORDER ID
        * ==========================================
-       *
-       * Tidak wajib.
-       *
-       * Kalau tersedia → review dikaitkan ke order.
-       * Kalau tidak tersedia → review tetap bisa
-       * disimpan oleh API Looms Society.
        */
 
       const orderId =
@@ -211,8 +274,14 @@ export default function CheckoutPage() {
         null;
 
       /*
+       * Supaya tidak dianggap unused oleh TypeScript
+       * jika orderId memang tidak digunakan langsung.
+       */
+      void orderId;
+
+      /*
        * ==========================================
-       * 4. WHATSAPP
+       * 3. WHATSAPP
        * ==========================================
        */
 
@@ -224,7 +293,6 @@ export default function CheckoutPage() {
 
       /*
        * Order sudah dibuat.
-       * Review sudah dicoba disimpan.
        * Sekarang buka WhatsApp.
        */
       window.location.assign(
@@ -374,6 +442,8 @@ export default function CheckoutPage() {
             </h2>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {/* PROVINCE */}
+
               <label className="text-sm">
                 Province
 
@@ -381,8 +451,7 @@ export default function CheckoutPage() {
                   required
                   value={form.province}
                   onChange={(event) =>
-                    update(
-                      "province",
+                    updateProvince(
                       event.target.value
                     )
                   }
@@ -405,22 +474,61 @@ export default function CheckoutPage() {
                 </select>
               </label>
 
+              {/* CITY / REGENCY */}
+
               <label className="text-sm">
                 City / Regency
 
-                <input
-                  required
-                  value={form.city}
-                  onChange={(event) =>
-                    update(
-                      "city",
-                      event.target.value
-                    )
-                  }
-                  className={`${inputClass} mt-2`}
-                  placeholder="Kota / Kabupaten"
-                />
+                {form.province ===
+                "Jawa Barat" ? (
+                  <select
+                    required
+                    value={form.city}
+                    onChange={(event) =>
+                      update(
+                        "city",
+                        event.target.value
+                      )
+                    }
+                    className={`${inputClass} mt-2`}
+                  >
+                    <option value="">
+                      Select city / regency
+                    </option>
+
+                    {westJavaCities.map(
+                      (city) => (
+                        <option
+                          key={city}
+                          value={city}
+                        >
+                          {city}
+                          {specialWestJavaCities.has(
+                            city
+                          )
+                            ? " — Rp5.000"
+                            : " — Rp10.000"}
+                        </option>
+                      )
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    required
+                    value={form.city}
+                    onChange={(event) =>
+                      update(
+                        "city",
+                        event.target.value
+                      )
+                    }
+                    className={`${inputClass} mt-2`}
+                    placeholder="Kota / Kabupaten"
+                  />
+                )}
               </label>
+
+              {/* DISTRICT */}
 
               <label className="text-sm">
                 District
@@ -439,6 +547,8 @@ export default function CheckoutPage() {
                 />
               </label>
 
+              {/* POSTAL CODE */}
+
               <label className="text-sm">
                 Postal code
 
@@ -456,6 +566,8 @@ export default function CheckoutPage() {
                   placeholder="Kode pos"
                 />
               </label>
+
+              {/* FULL ADDRESS */}
 
               <label className="text-sm sm:col-span-2">
                 Full address
@@ -476,6 +588,8 @@ export default function CheckoutPage() {
                   placeholder="Alamat lengkap..."
                 />
               </label>
+
+              {/* NOTES */}
 
               <label className="text-sm sm:col-span-2">
                 Notes{" "}
@@ -530,7 +644,7 @@ export default function CheckoutPage() {
           </button>
 
           <p className="text-center text-xs leading-6 text-looms-gray">
-            Your order will be saved first, then you will be redirected to WhatsApp.    
+            Your order will be saved first, then you will be redirected to WhatsApp.
           </p>
         </form>
 
@@ -618,3 +732,4 @@ export default function CheckoutPage() {
     </main>
   );
 }
+```
