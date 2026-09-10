@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
+import { SocietyReviewForm } from "@/components/society/review-form";
 
 export const dynamic = "force-dynamic";
 
@@ -180,6 +181,8 @@ export default async function LoomsSocietyPage() {
 
         </div>
       </section>
+
+      <SocietyReviewForm />
 
       {/* REVIEWS */}
       <section className="mx-auto max-w-6xl px-6 py-16 sm:px-10 lg:py-24">
