@@ -184,11 +184,11 @@ export default function CheckoutPage() {
       /*
        * Satu checkout = satu idempotency key.
        */
-      const idempotencyKey =
-        globalThis.crypto?.randomUUID?.() ??
-        `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2)}`;
+     const idempotencyKey =
+  globalThis.crypto?.randomUUID?.() ??
+  String(Date.now()) +
+    "-" +
+    Math.random().toString(36).slice(2);
 
       /*
        * Harga TIDAK dikirim dari browser.
