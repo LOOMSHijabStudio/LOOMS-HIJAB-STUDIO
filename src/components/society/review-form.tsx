@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { FormEvent, useState } from "react";
@@ -8,22 +7,13 @@ const inputClass =
 
 export function SocietyReviewForm() {
   const [name, setName] = useState("");
-  const [rating, setRating] =
-    useState<number | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  const [isSubmitting, setIsSubmitting] =
-    useState(false);
-
-  const [message, setMessage] =
-    useState("");
-
-  const [error, setError] =
-    useState("");
-
-  async function submit(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (isSubmitting) {
@@ -35,32 +25,23 @@ export function SocietyReviewForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(
-        "/api/society/reviews",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            name: name.trim() || null,
-            rating,
-            notes: notes.trim() || null,
-          }),
-        }
-      );
+      const response = await fetch("/api/society/reviews", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim() || null,
+          rating,
+          notes: notes.trim() || null,
+        }),
+      });
 
-      const result =
-        await response.json();
+      const result = await response.json();
 
-      if (
-        !response.ok ||
-        !result.success
-      ) {
+      if (!response.ok || !result.success) {
         throw new Error(
-          result.error ||
-            "Review gagal disimpan."
+          result.error || "Review gagal disimpan."
         );
       }
 
@@ -90,7 +71,6 @@ export function SocietyReviewForm() {
   return (
     <section className="border-y border-looms-teal/10 bg-white">
       <div className="mx-auto max-w-3xl px-6 py-16 sm:px-10 lg:py-20">
-
         <div className="text-center">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-looms-teal">
             YOUR VOICE MATTERS
@@ -101,9 +81,9 @@ export function SocietyReviewForm() {
           </h2>
 
           <p className="mx-auto mt-5 max-w-xl text-sm leading-7 text-looms-gray">
-            Tell us about your experience
-            with LOOMS. You may leave your
-            name, rating, review, or all three.
+            Tell us about your experience with LOOMS.
+            You may leave your name, rating, review,
+            or all three.
           </p>
         </div>
 
@@ -111,7 +91,6 @@ export function SocietyReviewForm() {
           onSubmit={submit}
           className="mt-10 space-y-6"
         >
-
           <label className="block text-sm">
             Name{" "}
             <span className="text-looms-gray">
@@ -137,35 +116,30 @@ export function SocietyReviewForm() {
             </p>
 
             <div className="mt-3 flex gap-2">
-              {[1, 2, 3, 4, 5].map(
-                (star) => {
-                  const active =
-                    rating !== null &&
-                    star <= rating;
+              {[1, 2, 3, 4, 5].map((star) => {
+                const active =
+                  rating !== null && star <= rating;
 
-                  return (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() =>
-                        setRating(
-                          active
-                            ? null
-                            : star
-                        )
-                      }
-                      className={`text-3xl leading-none transition ${
-                        active
-                          ? "text-looms-teal"
-                          : "text-gray-300 hover:text-looms-teal/60"
-                      }`}
-                      aria-label={`Rating ${star} dari 5`}
-                    >
-                      ★
-                    </button>
-                  );
-                }
-              )}
+                return (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() =>
+                      setRating(
+                        active ? null : star
+                      )
+                    }
+                    className={`text-3xl leading-none transition ${
+                      active
+                        ? "text-looms-teal"
+                        : "text-gray-300 hover:text-looms-teal/60"
+                    }`}
+                    aria-label={`Rating ${star} dari 5`}
+                  >
+                    ★
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -209,14 +183,11 @@ export function SocietyReviewForm() {
           </button>
 
           <p className="text-center text-xs leading-6 text-looms-gray">
-            By submitting a review, you
-            allow LOOMS to display it on
-            the Looms Society page.
+            By submitting a review, you allow LOOMS
+            to display it on the Looms Society page.
           </p>
-
         </form>
       </div>
     </section>
   );
 }
-```
