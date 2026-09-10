@@ -46,6 +46,7 @@ export default function AdminProductsPage() {
     price: string;
     sale_price: string;
     stock: string;
+    availability: string;
     image: string;
     status: string;
     description: string;
@@ -54,6 +55,7 @@ export default function AdminProductsPage() {
     price: "",
     sale_price: "",
     stock: "0",
+    availability: "regular",
     image: "",
     status: "ACTIVE",
     description: "",
@@ -104,6 +106,7 @@ export default function AdminProductsPage() {
         ? product.sale_price.toString()
         : "",
       stock: product.stock.toString(),
+      availability: product.availability || "regular",
       image: product.image || "/images/editorial-sand.svg",
       status: product.status || "ACTIVE",
       description: product.description || "",
@@ -176,6 +179,7 @@ export default function AdminProductsPage() {
           ? Number(editForm.sale_price)
           : null,
         stock: Number(editForm.stock),
+        availability: editForm.availability,
         status: editForm.status,
         description: editForm.description,
       };
@@ -753,6 +757,48 @@ export default function AdminProductsPage() {
                     </option>
                   </select>
                 </div>
+              </div>
+
+                            {/* Availability */}
+              <div>
+                <label className="block font-semibold text-gray-700 mb-1">
+                  Ketersediaan Produk
+                </label>
+
+                <select
+                  value={editForm.availability}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      availability: e.target.value,
+                    })
+                  }
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:border-looms-teal"
+                >
+                  <option value="regular">
+                    Regular — Ready Stock
+                  </option>
+
+                  <option value="preorder_3">
+                    Pre-Order — 3 Hari
+                  </option>
+
+                  <option value="preorder_5">
+                    Pre-Order — 5 Hari
+                  </option>
+
+                  <option value="preorder_7">
+                    Pre-Order — 7 Hari
+                  </option>
+
+                  <option value="preorder_14">
+                    Pre-Order — 14 Hari
+                  </option>
+
+                  <option value="preorder_30">
+                    Pre-Order — 30 Hari
+                  </option>
+                </select>
               </div>
 
               {/* Image Upload & Preview */}
