@@ -424,7 +424,7 @@ export default function NewProductPage() {
   >
     <option value="regular">Regular</option>
     <option value="preorder_3">Pre-Order 3 hari</option>
-    <option value="preorder_4">Pre-Order 4 hari</option>
+    <option value="preorder_5">Pre-Order 5 hari</option>
     <option value="preorder_7">Pre-Order 7 hari</option>
     <option value="preorder_14">Pre-Order 14 hari</option>
     <option value="preorder_30">Pre-Order 30 hari</option>
