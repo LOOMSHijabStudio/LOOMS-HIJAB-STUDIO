@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 interface AdminNavProps {
   roles: string[];
@@ -12,6 +12,7 @@ interface NavItem {
   label: string;
   roles: string[];
   exact?: boolean;
+  placement?: string;
 }
 
 const navItems: NavItem[] = [
@@ -40,44 +41,26 @@ const navItems: NavItem[] = [
     roles: ["OWNER", "ADMIN"],
   },
 
-  /*
-   * ==========================================
-   * COLLECTION
-   * ==========================================
-   */
   {
     href: "/admin/collections",
     label: "Collection",
     roles: ["OWNER", "ADMIN"],
   },
 
-  /*
-   * ==========================================
-   * NEW ARRIVALS
-   * ==========================================
-   */
   {
     href: "/admin/products?placement=NEW_ARRIVALS",
     label: "New Arrivals",
     roles: ["OWNER", "ADMIN", "EDITOR"],
+    placement: "NEW_ARRIVALS",
   },
 
-  /*
-   * ==========================================
-   * BEST SELLERS
-   * ==========================================
-   */
   {
     href: "/admin/products?placement=BEST_SELLERS",
     label: "Best Sellers",
     roles: ["OWNER", "ADMIN", "EDITOR"],
+    placement: "BEST_SELLERS",
   },
 
-  /*
-   * ==========================================
-   * LOOMS SOCIETY
-   * ==========================================
-   */
   {
     href: "/admin/looms-society",
     label: "Looms Society",
@@ -107,31 +90,77 @@ export function AdminNav({
   roles,
 }: AdminNavProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const filteredItems = navItems.filter(
-    (item) =>
+  const currentPlacement =
+    searchParams.get("placement");
+
+  const filteredItems =
+    navItems.filter((item) =>
       item.roles.some((role) =>
         roles.includes(role)
       )
-  );
+    );
 
   return (
     <nav className="mt-6 space-y-1 px-3">
       {filteredItems.map((item) => {
-        /*
-         * Untuk item dengan query string,
-         * active state berdasarkan pathname saja.
-         */
         const itemPath =
           item.href.split("?")[0];
 
-        const isActive =
-          item.exact
-            ? pathname === itemPath
-            : pathname === itemPath ||
-              pathname.startsWith(
-                `${itemPath}/`
-              );
+        let isActive = false;
+
+        /*
+         * ==========================================
+         * DASHBOARD
+         * ==========================================
+         */
+        if (item.exact) {
+          isActive =
+            pathname === itemPath &&
+            !currentPlacement;
+        }
+
+        /*
+         * ==========================================
+         * NEW ARRIVALS / BEST SELLERS
+         * ==========================================
+         */
+        else if (item.placement) {
+          isActive =
+            pathname === itemPath &&
+            currentPlacement ===
+              item.placement;
+        }
+
+        /*
+         * ==========================================
+         * MENU BIASA
+         * ==========================================
+         */
+        else {
+          isActive =
+            pathname === itemPath ||
+            pathname.startsWith(
+              `${itemPath}/`
+            );
+
+          /*
+           * Sangat penting:
+           *
+           * /admin/products?placement=NEW_ARRIVALS
+           *
+           * jangan membuat menu Produk ikut
+           * aktif.
+           */
+          if (
+            itemPath ===
+              "/admin/products" &&
+            currentPlacement
+          ) {
+            isActive = false;
+          }
+        }
 
         return (
           <Link
@@ -139,7 +168,7 @@ export function AdminNav({
             href={item.href}
             className={`flex items-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
               isActive
-                ? "bg-white text-looms-teal shadow-sm font-semibold"
+                ? "bg-looms-cream text-looms-teal shadow-sm font-semibold"
                 : "text-looms-cream/80 hover:bg-looms-teal/70 hover:text-looms-cream"
             }`}
           >
