@@ -406,7 +406,7 @@ export default function CheckoutPage() {
                       event.target.value
                     )
                   }
-                  className={`${inputClass} mt-2`}
+                  className={inputClass + " mt-2"}
                   placeholder="08xxxxxxxxxx"
                 />
               </label>
