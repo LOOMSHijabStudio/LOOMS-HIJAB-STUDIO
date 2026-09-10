@@ -12,7 +12,7 @@ interface NavItem {
   label: string;
   roles: string[];
   exact?: boolean;
-  placement?: string;
+  placement?: "NEW_ARRIVALS" | "BEST_SELLERS";
 }
 
 const navItems: NavItem[] = [
@@ -22,63 +22,54 @@ const navItems: NavItem[] = [
     roles: ["OWNER", "ADMIN", "EDITOR"],
     exact: true,
   },
-
   {
     href: "/admin/products",
     label: "Produk",
     roles: ["OWNER", "ADMIN", "EDITOR"],
+    exact: true,
   },
-
   {
     href: "/admin/orders",
     label: "Pesanan",
     roles: ["OWNER", "ADMIN"],
   },
-
   {
     href: "/admin/categories",
     label: "Kategori",
     roles: ["OWNER", "ADMIN"],
   },
-
   {
-    href: "/admin/collections",
+    href: "/admin/collection",
     label: "Collection",
     roles: ["OWNER", "ADMIN"],
   },
-
   {
     href: "/admin/products?placement=NEW_ARRIVALS",
     label: "New Arrivals",
     roles: ["OWNER", "ADMIN", "EDITOR"],
     placement: "NEW_ARRIVALS",
   },
-
   {
     href: "/admin/products?placement=BEST_SELLERS",
     label: "Best Sellers",
     roles: ["OWNER", "ADMIN", "EDITOR"],
     placement: "BEST_SELLERS",
   },
-
   {
     href: "/admin/looms-society",
     label: "Looms Society",
-    roles: ["OWNER", "ADMIN"],
+    roles: ["OWNER", "ADMIN", "EDITOR"],
   },
-
   {
     href: "/admin/appearance",
     label: "Tampilan Toko",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
-
   {
     href: "/admin/users",
     label: "Admin Users",
     roles: ["OWNER"],
   },
-
   {
     href: "/admin/audit-logs",
     label: "Audit Logs",
@@ -86,91 +77,68 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function AdminNav({
-  roles,
-}: AdminNavProps) {
+function hasRole(roles: string[], allowedRoles: string[]) {
+  return roles.some((role) => allowedRoles.includes(role));
+}
+
+export function AdminNav({ roles }: AdminNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const currentPlacement =
-    searchParams.get("placement");
+  const currentPlacement = searchParams.get("placement");
 
-  const filteredItems =
-    navItems.filter((item) =>
-      item.roles.some((role) =>
-        roles.includes(role)
-      )
-    );
+  const visibleItems = navItems.filter((item) =>
+    hasRole(roles, item.roles)
+  );
+
+  function isActive(item: NavItem) {
+    // New Arrivals
+    if (item.placement === "NEW_ARRIVALS") {
+      return (
+        pathname === "/admin/products" &&
+        currentPlacement === "NEW_ARRIVALS"
+      );
+    }
+
+    // Best Sellers
+    if (item.placement === "BEST_SELLERS") {
+      return (
+        pathname === "/admin/products" &&
+        currentPlacement === "BEST_SELLERS"
+      );
+    }
+
+    // Produk utama
+    if (item.href === "/admin/products") {
+      return (
+        pathname === "/admin/products" &&
+        !currentPlacement
+      );
+    }
+
+    // Dashboard
+    if (item.exact) {
+      return pathname === item.href;
+    }
+
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  }
 
   return (
-    <nav className="mt-6 space-y-1 px-3">
-      {filteredItems.map((item) => {
-        const itemPath =
-          item.href.split("?")[0];
-
-        let isActive = false;
-
-        /*
-         * ==========================================
-         * DASHBOARD
-         * ==========================================
-         */
-        if (item.exact) {
-          isActive =
-            pathname === itemPath &&
-            !currentPlacement;
-        }
-
-        /*
-         * ==========================================
-         * NEW ARRIVALS / BEST SELLERS
-         * ==========================================
-         */
-        else if (item.placement) {
-          isActive =
-            pathname === itemPath &&
-            currentPlacement ===
-              item.placement;
-        }
-
-        /*
-         * ==========================================
-         * MENU BIASA
-         * ==========================================
-         */
-        else {
-          isActive =
-            pathname === itemPath ||
-            pathname.startsWith(
-              `${itemPath}/`
-            );
-
-          /*
-           * Sangat penting:
-           *
-           * /admin/products?placement=NEW_ARRIVALS
-           *
-           * jangan membuat menu Produk ikut
-           * aktif.
-           */
-          if (
-            itemPath ===
-              "/admin/products" &&
-            currentPlacement
-          ) {
-            isActive = false;
-          }
-        }
+    <nav className="space-y-1">
+      {visibleItems.map((item) => {
+        const active = isActive(item);
 
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`flex items-center rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-looms-cream text-looms-teal shadow-sm font-semibold"
-                : "text-looms-cream/80 hover:bg-looms-teal/70 hover:text-looms-cream"
-            }`}
+            className={[
+              "block rounded-xl px-4 py-3 text-sm font-medium transition",
+              active
+                ? "bg-white text-black shadow-sm"
+                : "text-white/70 hover:bg-white/10 hover:text-white",
+            ].join(" ")}
           >
             {item.label}
           </Link>
