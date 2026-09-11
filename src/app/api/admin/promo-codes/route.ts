@@ -275,3 +275,72 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        {
+          error: "Supabase belum dikonfigurasi.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const body = await request.json();
+
+    const id = String(body.id || "").trim();
+
+    if (!id) {
+      return NextResponse.json(
+        {
+          error: "ID promo wajib diisi.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createSupabaseServiceClient();
+
+    const { error } = await supabase
+      .from("promo_codes")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error(
+        "Promo code delete error:",
+        error
+      );
+
+      return NextResponse.json(
+        {
+          error: error.message,
+          details: error.details || null,
+          hint: error.hint || null,
+          code: error.code || null,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error(
+      "Promo code delete API error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan saat menghapus promo code.",
+      },
+      { status: 500 }
+    );
+  }
+}
