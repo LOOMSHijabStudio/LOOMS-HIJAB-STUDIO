@@ -61,6 +61,11 @@ const navItems: NavItem[] = [
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
   {
+    href: "/admin/promo-codes",
+    label: "Promo Codes",
+    roles: ["OWNER", "ADMIN"],
+  },
+  {
     href: "/admin/appearance",
     label: "Tampilan Toko",
     roles: ["OWNER", "ADMIN", "EDITOR"],
@@ -147,3 +152,4 @@ export function AdminNav({ roles }: AdminNavProps) {
     </nav>
   );
 }
+
