@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 
@@ -97,12 +99,12 @@ export default async function PromoCodesPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-black/80"
+        <Link
+          href="/admin/promo-codes/new"
+          className="rounded-xl bg-black px-5 py-3 text-center text-sm font-medium text-white transition hover:bg-black/80"
         >
           + Tambah Promo
-        </button>
+        </Link>
       </div>
 
       {errorMessage ? (
@@ -117,10 +119,18 @@ export default async function PromoCodesPage() {
                 <tr>
                   <th className="px-5 py-4 font-medium">Kode</th>
                   <th className="px-5 py-4 font-medium">Diskon</th>
-                  <th className="px-5 py-4 font-medium">Min. Pembelian</th>
-                  <th className="px-5 py-4 font-medium">Maks. Diskon</th>
-                  <th className="px-5 py-4 font-medium">Penggunaan</th>
-                  <th className="px-5 py-4 font-medium">Periode</th>
+                  <th className="px-5 py-4 font-medium">
+                    Min. Pembelian
+                  </th>
+                  <th className="px-5 py-4 font-medium">
+                    Maks. Diskon
+                  </th>
+                  <th className="px-5 py-4 font-medium">
+                    Penggunaan
+                  </th>
+                  <th className="px-5 py-4 font-medium">
+                    Periode
+                  </th>
                   <th className="px-5 py-4 font-medium">Status</th>
                 </tr>
               </thead>
@@ -197,7 +207,9 @@ export default async function PromoCodesPage() {
                               : "bg-black/5 text-looms-gray",
                           ].join(" ")}
                         >
-                          {promo.is_active ? "Aktif" : "Nonaktif"}
+                          {promo.is_active
+                            ? "Aktif"
+                            : "Nonaktif"}
                         </span>
                       </td>
                     </tr>
@@ -211,4 +223,3 @@ export default async function PromoCodesPage() {
     </main>
   );
 }
-
