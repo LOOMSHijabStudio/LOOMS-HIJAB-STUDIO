@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 
 import type { DemoProduct } from "@/features/catalog/demo-data";
 import { ProductDetailPurchase } from "@/components/catalog/product-detail-purchase";
+import RelatedProductsCarousel from "@/components/catalog/related-products-carousel";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 
