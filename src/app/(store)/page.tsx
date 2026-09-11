@@ -175,9 +175,7 @@ export default async function HomePage() {
     );
 
   const newArrivalProducts =
-    markedNewArrivals.length > 0
-      ? markedNewArrivals
-      : gridProducts.slice(0, 4);
+    markedNewArrivals;
 
   const markedBestSellers =
     gridProducts.filter(
@@ -185,9 +183,7 @@ export default async function HomePage() {
     );
 
   const bestSellerProducts =
-    markedBestSellers.length > 0
-      ? markedBestSellers
-      : gridProducts;
+    markedBestSellers;
 
   return (
     <main>
