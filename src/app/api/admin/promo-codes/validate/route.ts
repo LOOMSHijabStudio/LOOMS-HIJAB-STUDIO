@@ -102,7 +102,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const minimumPurchase = Number(promo.minimum_purchase || 0);
+    const minimumPurchase = Number(
+      promo.minimum_purchase || 0
+    );
 
     if (subtotal < minimumPurchase) {
       return NextResponse.json(
@@ -120,7 +122,8 @@ export async function POST(request: Request) {
 
     if (promo.discount_type === "percentage") {
       discount =
-        subtotal * (Number(promo.discount_value || 0) / 100);
+        subtotal *
+        (Number(promo.discount_value || 0) / 100);
 
       if (
         promo.maximum_discount !== null &&
@@ -132,10 +135,15 @@ export async function POST(request: Request) {
         );
       }
     } else if (promo.discount_type === "fixed") {
-      discount = Number(promo.discount_value || 0);
+      discount = Number(
+        promo.discount_value || 0
+      );
     }
 
-    discount = Math.max(0, Math.min(discount, subtotal));
+    discount = Math.max(
+      0,
+      Math.min(discount, subtotal)
+    );
 
     return NextResponse.json({
       success: true,
@@ -146,8 +154,18 @@ export async function POST(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Terjadi kesalahan saat memproses kode promo." },
+      {
+        error:
+          "Terjadi kesalahan saat memproses kode promo.",
+      },
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    message: "Promo validation API is active.",
+  });
 }
