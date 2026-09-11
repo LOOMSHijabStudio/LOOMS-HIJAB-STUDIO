@@ -6,135 +6,31 @@ import { SectionHeading } from "@/components/home/section-heading";
 import { ProductGrid } from "@/components/catalog/product-grid";
 
 import { getWebsiteAppearance } from "@/server/store/appearance";
+
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 
+import type { DemoProduct } from "@/features/catalog/demo-data";
+
 export const dynamic = "force-dynamic";
 
-type SupabaseImage = {
-  storage_path: string;
-  is_primary: boolean | null;
-  position: number | null;
-};
+async function getCatalogProducts(): Promise<DemoProduct[]> {
+  // =====================================================
+  // WEBSITE PUBLIC HANYA MENGAMBIL DATA DARI SUPABASE
+  // =====================================================
 
-type SupabaseVariant = {
-  id: string;
-  name: string;
-  price: number | null;
-  stock: number | null;
-  is_active: boolean | null;
-};
-
-type SupabaseCategory = {
-  name: string;
-  slug: string;
-};
-
-type SupabasePlacement = {
-  product_id: string;
-  placement: string;
-  position: number | null;
-};
-
-type SupabaseProduct = {
-  id: string;
-  name: string;
-  slug: string;
-  sku: string | null;
-  price: number;
-  sale_price: number | null;
-  stock: number;
-  status: string;
-  availability: string;
-  description: string | null;
-  material: string | null;
-  is_featured: boolean | null;
-  is_new_arrival: boolean | null;
-  is_best_seller: boolean | null;
-  created_at: string;
-  categories:
-    | SupabaseCategory
-    | SupabaseCategory[]
-    | null;
-  product_images: SupabaseImage[] | null;
-  product_variants: SupabaseVariant[] | null;
-};
-
-type HomeProduct = {
-  id: string;
-  slug: string;
-  name: string;
-  category: string;
-  price: number;
-  salePrice?: number;
-  image: string;
-  imageAlt: string;
-  description: string;
-  material: string;
-  care: string;
-  stock: number;
-  availability: string;
-  isNew?: boolean;
-  isBestSeller?: boolean;
-  isFeatured?: boolean;
-  variants: string[];
-  variantIds: Record<string, string>;
-};
-
-function getPublicImageUrl(
-  storagePath: string | null | undefined
-) {
-  if (!storagePath) {
-    return "/images/editorial-mocha.svg";
-  }
-
-  if (
-    storagePath.startsWith("http://") ||
-    storagePath.startsWith("https://") ||
-    storagePath.startsWith("/")
-  ) {
-    return storagePath;
-  }
-
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL;
-
-  if (!supabaseUrl) {
-    return "/images/editorial-mocha.svg";
-  }
-
-  return `${supabaseUrl}/storage/v1/object/public/product-images/${storagePath}`;
-}
-
-function getCategoryName(
-  category:
-    | SupabaseCategory
-    | SupabaseCategory[]
-    | null
-    | undefined
-) {
-  if (Array.isArray(category)) {
-    return category[0]?.name ?? "LOOMS";
-  }
-
-  return category?.name ?? "LOOMS";
-}
-
-async function getHomeProducts(): Promise<HomeProduct[]> {
   if (!isSupabaseConfigured()) {
+    console.error("Supabase belum dikonfigurasi.");
     return [];
   }
 
-  const client =
-    createSupabaseServiceClient();
+  try {
+    const client = createSupabaseServiceClient();
 
-  const {
-    data: productsData,
-    error: productsError,
-  } = await client
-    .from("products")
-    .select(
-      `
+    const { data, error } = await client
+      .from("products")
+      .select(
+        `
         id,
         name,
         slug,
@@ -143,453 +39,367 @@ async function getHomeProducts(): Promise<HomeProduct[]> {
         sale_price,
         stock,
         status,
-        availability,
         description,
         material,
         is_featured,
         is_new_arrival,
         is_best_seller,
         created_at,
-        categories (
-          name,
-          slug
-        ),
         product_images (
           storage_path,
           is_primary,
           position
-        ),
-        product_variants (
-          id,
-          name,
-          price,
-          stock,
-          is_active
         )
       `
-    )
-    .eq("status", "ACTIVE")
-    .order("created_at", {
-      ascending: false,
-    });
-
-  if (productsError) {
-    console.error(
-      "Failed to load Home products:",
-      productsError
-    );
-
-    return [];
-  }
-
-  const {
-    data: placementsData,
-    error: placementsError,
-  } = await client
-    .from("product_placements")
-    .select(
-      `
-        product_id,
-        placement,
-        position
-      `
-    )
-    .order("position", {
-      ascending: true,
-    });
-
-  if (placementsError) {
-    console.error(
-      "Failed to load product placements:",
-      placementsError
-    );
-
-    return [];
-  }
-
-  const products =
-    (productsData ?? []) as SupabaseProduct[];
-
-  const placements =
-    (placementsData ?? []) as SupabasePlacement[];
-
-  const placementMap = new Map<
-    string,
-    Set<string>
-  >();
-
-  for (const placement of placements) {
-    if (
-      !placementMap.has(
-        placement.product_id
       )
-    ) {
-      placementMap.set(
-        placement.product_id,
-        new Set<string>()
+      .eq("status", "ACTIVE")
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (error) {
+      console.error(
+        "Gagal mengambil produk dari Supabase:",
+        error
       );
+
+      return [];
     }
 
-    placementMap
-      .get(placement.product_id)!
-      .add(placement.placement);
+    return (data ?? []).map((product) => {
+      const images =
+        (product.product_images ?? []) as Array<{
+          storage_path: string;
+          is_primary: boolean;
+          position: number;
+        }>;
+
+      // =====================================================
+      // CARI GAMBAR UTAMA
+      // =====================================================
+
+      const primaryImage =
+        images.find(
+          (image) => image.is_primary
+        ) ??
+        [...images].sort(
+          (a, b) =>
+            (a.position ?? 0) -
+            (b.position ?? 0)
+        )[0];
+
+      let imageUrl =
+        "/images/editorial-mocha.svg";
+
+      if (primaryImage?.storage_path) {
+        imageUrl =
+          client.storage
+            .from("product-images")
+            .getPublicUrl(
+              primaryImage.storage_path
+            )
+            .data.publicUrl;
+      }
+
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+
+        category:
+          "The Essential Edit",
+
+        price: Number(
+          product.price ?? 0
+        ),
+
+        salePrice:
+          product.sale_price !== null &&
+          product.sale_price !== undefined
+            ? Number(
+                product.sale_price
+              )
+            : undefined,
+
+        image: imageUrl,
+
+        imageAlt: product.name,
+
+        description:
+          product.description ?? "",
+
+        material:
+          product.material ??
+          "Premium Satin Voile",
+
+        care: "Hand wash cold.",
+
+        stock: Number(
+          product.stock ?? 0
+        ),
+
+        isNew: Boolean(
+          product.is_new_arrival
+        ),
+
+        isBestSeller: Boolean(
+          product.is_best_seller
+        ),
+
+        variants: [],
+
+        variantIds: {},
+      };
+    });
+  } catch (error) {
+    console.error(
+      "Catalog products error:",
+      error
+    );
+
+    return [];
   }
-
-  return products.map((product) => {
-    const images = Array.isArray(
-      product.product_images
-    )
-      ? [...product.product_images].sort(
-          (a, b) => {
-            if (
-              a.is_primary &&
-              !b.is_primary
-            ) {
-              return -1;
-            }
-
-            if (
-              !a.is_primary &&
-              b.is_primary
-            ) {
-              return 1;
-            }
-
-            return (
-              (a.position ?? 0) -
-              (b.position ?? 0)
-            );
-          }
-        )
-      : [];
-
-    const activeVariants =
-      Array.isArray(
-        product.product_variants
-      )
-        ? product.product_variants.filter(
-            (variant) =>
-              variant.is_active !== false
-          )
-        : [];
-
-    const variantIds: Record<
-      string,
-      string
-    > = {};
-
-    for (const variant of activeVariants) {
-      variantIds[variant.name] =
-        variant.id;
-    }
-
-    const productPlacements =
-      placementMap.get(product.id) ??
-      new Set<string>();
-
-    return {
-      id: product.id,
-      slug: product.slug,
-      name: product.name,
-      category: getCategoryName(
-        product.categories
-      ),
-      price: Number(
-        product.price ?? 0
-      ),
-      salePrice:
-        product.sale_price !== null
-          ? Number(product.sale_price)
-          : undefined,
-      image: getPublicImageUrl(
-        images[0]?.storage_path
-      ),
-      imageAlt: product.name,
-      description:
-        product.description ?? "",
-      material:
-        product.material ??
-        "Premium Satin Voile",
-      care: "Hand wash cold.",
-      stock: Number(
-        product.stock ?? 0
-      ),
-
-      availability:
-        product.availability ??
-        "regular",
-
-      isNew:
-        productPlacements.has(
-          "NEW_ARRIVALS"
-        ),
-
-      isBestSeller:
-        productPlacements.has(
-          "BEST_SELLERS"
-        ),
-
-      isFeatured:
-        productPlacements.has(
-          "HOME"
-        ),
-
-      variants:
-        activeVariants.map(
-          (variant) => variant.name
-        ),
-
-      variantIds,
-    };
-  });
 }
 
 export default async function HomePage() {
   const appearance =
     await getWebsiteAppearance();
 
-  const products =
-    await getHomeProducts();
+  // =====================================================
+  // AMBIL PRODUK LANGSUNG DARI SUPABASE
+  // TIDAK MENGGUNAKAN demoProducts
+  // =====================================================
 
-  const newArrivalProducts =
-    products.filter(
-      (product) =>
-        product.isNew === true
-    );
-
-  const bestSellerProducts =
-    products.filter(
-      (product) =>
-        product.isBestSeller === true
-    );
-
-  const homeProducts =
-    products.filter(
-      (product) =>
-        product.isFeatured === true
-    );
+  const gridProducts =
+    await getCatalogProducts();
 
   return (
     <main>
+      {/* ================================================= */}
+      {/* HERO SECTION */}
+      {/* ================================================= */}
 
-      {/* HERO */}
-      <section className="relative overflow-hidden bg-looms-cream">
-        <div className="mx-auto grid max-w-7xl lg:grid-cols-2">
+      <section className="grid min-h-[calc(100svh-6.5rem)] bg-[#d3c4b6] lg:grid-cols-[1fr_1.2fr]">
+        <div className="order-2 flex flex-col justify-center px-6 py-16 lg:order-1 lg:px-[max(3rem,8vw)]">
+          <p className="text-[10px] font-medium tracking-[0.18em] text-looms-gray">
+            {appearance.heroEyebrow}
+          </p>
 
-          <div className="flex min-h-[560px] flex-col justify-center px-6 py-16 sm:px-10 lg:px-16">
+          <h1 className="mt-5 max-w-lg whitespace-pre-line font-display text-5xl leading-[.95] text-looms-teal sm:text-7xl lg:text-8xl">
+            {appearance.heroTitle}
+          </h1>
 
-            <p className="mb-5 text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
-              {appearance.heroEyebrow}
-            </p>
+          <p className="mt-7 max-w-md text-sm leading-7 text-looms-gray">
+            {appearance.heroDescription}
+          </p>
 
-            <h1 className="max-w-xl whitespace-pre-line font-serif text-5xl leading-[0.95] text-looms-teal sm:text-6xl lg:text-7xl">
-              {appearance.heroTitle}
-            </h1>
+          <div className="mt-9 flex flex-wrap gap-4">
+            <Link
+              href="/shop"
+              className="bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] text-looms-cream transition hover:bg-looms-teal/90"
+            >
+              SHOP COLLECTION
+            </Link>
 
-            <p className="mt-7 max-w-lg text-base leading-7 text-looms-gray">
-              {appearance.heroDescription}
-            </p>
-
-            <div className="mt-9 flex flex-wrap gap-3">
-              <Link
-                href="/shop"
-                className="inline-flex items-center justify-center rounded-full bg-looms-teal px-7 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:opacity-90"
-              >
-                SHOP NOW
-              </Link>
-
-              <Link
-                href="/about"
-                className="inline-flex items-center justify-center rounded-full border border-looms-teal px-7 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-looms-teal transition hover:bg-looms-teal hover:text-white"
-              >
-                OUR STORY
-              </Link>
-            </div>
-
+            <Link
+              href="/shop?edit=new"
+              className="border border-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] transition hover:bg-looms-teal hover:text-looms-cream"
+            >
+              EXPLORE NEW ARRIVALS
+            </Link>
           </div>
+        </div>
 
-          <div className="relative min-h-[420px] lg:min-h-[560px]">
-            <Image
-              src={
-                appearance.heroImage ||
-                "/images/editorial-mocha.svg"
-              }
-              alt="LOOMS Hijab Studio"
-              fill
-              priority
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          </div>
+        {/* ================================================= */}
+        {/* HERO MEDIA */}
+        {/* ================================================= */}
 
+        <div className="relative order-1 min-h-[52svh] overflow-hidden lg:order-2 lg:min-h-0">
+          <img
+            src={
+              appearance.heroImage ||
+              "/images/editorial-mocha.svg"
+            }
+            alt="Hero Banner"
+            className="absolute inset-0 h-full w-full object-cover motion-safe:animate-[pulse_8s_ease-in-out_infinite]"
+            loading="eager"
+          />
         </div>
       </section>
 
-      {/* NEW ARRIVALS */}
-      {newArrivalProducts.length > 0 && (
-        <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl">
+      {/* ================================================= */}
+      {/* THE ESSENTIAL EDIT */}
+      {/* ================================================= */}
 
-            <SectionHeading
-              eyebrow="JUST IN"
-              title="New arrivals."
-              href="/shop?edit=new"
-            />
+      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+        <SectionHeading
+          eyebrow="THE ESSENTIAL EDIT"
+          title="Considered essentials."
+        />
 
-            <ProductGrid
-              products={
-                newArrivalProducts
-              }
-            />
-
+        {gridProducts.length > 0 ? (
+          <ProductGrid
+            products={gridProducts}
+          />
+        ) : (
+          <div className="py-20 text-center">
+            <p className="text-sm tracking-[0.08em] text-looms-gray">
+              BELUM ADA PRODUK AKTIF
+            </p>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* EDITORIAL */}
-      <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
-        <div className="mx-auto grid max-w-7xl overflow-hidden bg-looms-sand lg:grid-cols-2">
+      {/* ================================================= */}
+      {/* EDITORIAL BANNER */}
+      {/* ================================================= */}
 
-          <div className="relative min-h-[420px]">
-            <Image
-              src={
-                appearance.editorialImage ||
-                "/images/editorial-mocha.svg"
-              }
-              alt="LOOMS editorial"
-              fill
-              className="object-cover"
-              sizes="(max-width: 1024px) 100vw, 50vw"
-            />
-          </div>
+      <section className="grid bg-looms-teal text-looms-cream lg:grid-cols-2">
+        {/* ================================================= */}
+        {/* EDITORIAL MEDIA */}
+        {/* ================================================= */}
 
-          <div className="flex flex-col justify-center p-8 sm:p-12 lg:p-16">
+        <div className="relative min-h-[28rem] overflow-hidden">
+          <img
+            src={
+              appearance.editorialImage ||
+              "/images/editorial-mocha.svg"
+            }
+            alt="Editorial composition"
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+          />
+        </div>
 
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
+        <div className="flex items-center px-6 py-20 lg:px-[max(3rem,8vw)]">
+          <div>
+            <p className="text-[10px] font-medium tracking-[0.16em] text-looms-cream/65">
               {appearance.editorialEyebrow}
             </p>
 
-            <h2 className="mt-4 font-serif text-4xl leading-tight text-looms-teal sm:text-5xl">
+            <h2 className="mt-5 max-w-md font-display text-5xl leading-[.95] md:text-6xl">
               {appearance.editorialTitle}
             </h2>
 
-            <p className="mt-6 max-w-lg leading-7 text-looms-gray">
+            <p className="mt-6 max-w-md text-sm leading-7 text-looms-cream/70">
               {appearance.editorialDescription}
             </p>
 
-            <div className="mt-8">
-              <Link
-                href="/shop"
-                className="inline-flex rounded-full bg-looms-teal px-7 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:opacity-90"
-              >
-                EXPLORE THE EDIT
-              </Link>
-            </div>
-
+            <Link
+              href="/shop?edit=new"
+              className="mt-9 inline-block border-b border-looms-cream pb-1 text-xs font-medium tracking-[0.1em] hover:opacity-80"
+            >
+              DISCOVER THE EDIT
+            </Link>
           </div>
         </div>
       </section>
 
+      {/* ================================================= */}
       {/* BEST SELLERS */}
-      {bestSellerProducts.length > 0 && (
-        <section className="bg-looms-cream px-6 py-20 sm:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl">
+      {/* ================================================= */}
 
-            <SectionHeading
-              eyebrow="WORN & LOVED"
-              title="Best sellers."
-              href="/shop?edit=best"
-            />
+      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+        <SectionHeading
+          eyebrow="WORN &amp; LOVED"
+          title="Best sellers."
+          href="/shop?edit=best"
+        />
 
-            <ProductGrid
-              products={
-                bestSellerProducts
-              }
-            />
-
+        {gridProducts.length > 0 ? (
+          <ProductGrid
+            products={gridProducts}
+          />
+        ) : (
+          <div className="py-20 text-center">
+            <p className="text-sm tracking-[0.08em] text-looms-gray">
+              BELUM ADA PRODUK
+            </p>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* FEATURED */}
-      {homeProducts.length > 0 && (
-        <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
-          <div className="mx-auto max-w-7xl">
+      {/* ================================================= */}
+      {/* STORY BANNER */}
+      {/* ================================================= */}
 
-            <SectionHeading
-              eyebrow="LOOMS EDIT"
-              title="Featured pieces."
-              href="/shop?edit=featured"
-            />
+      <section className="grid bg-[#b98f75] lg:grid-cols-[1.15fr_.85fr]">
+        <div className="relative min-h-[26rem] overflow-hidden">
+          <Image
+            src={
+              appearance.storyImage ||
+              "/images/editorial-mocha.svg"
+            }
+            alt="Story composition"
+            fill
+            sizes="(max-width: 1024px) 100vw, 60vw"
+            className="object-cover"
+          />
+        </div>
 
-            <ProductGrid
-              products={
-                homeProducts
-              }
-            />
+        <div className="flex items-center px-6 py-16 lg:px-[max(3rem,8vw)]">
+          <div>
+            <p className="text-[10px] font-medium tracking-[0.16em] text-looms-teal/70">
+              THE LOOMS WAY
+            </p>
 
-          </div>
-        </section>
-      )}
+            <h2 className="mt-4 font-display text-5xl leading-none">
+              {appearance.storyTitle}
+            </h2>
 
-      {/* STORY */}
-      <section className="bg-looms-teal px-6 py-20 text-white sm:px-10 lg:px-16">
-        <div className="mx-auto max-w-4xl text-center">
+            <p className="mt-6 max-w-sm text-sm leading-7 text-looms-teal/80">
+              {appearance.storyDescription}
+            </p>
 
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/70">
-            THE LOOMS STORY
-          </p>
-
-          <h2 className="mt-5 font-serif text-4xl leading-tight sm:text-5xl">
-            {appearance.storyTitle}
-          </h2>
-
-          <p className="mx-auto mt-6 max-w-2xl leading-7 text-white/75">
-            {appearance.storyDescription}
-          </p>
-
-          <div className="mt-8">
             <Link
               href="/about"
-              className="inline-flex rounded-full border border-white/50 px-7 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-white transition hover:bg-white hover:text-looms-teal"
+              className="mt-8 inline-block border-b border-looms-teal pb-1 text-xs font-medium tracking-[0.1em]"
             >
-              READ OUR STORY
+              OUR STORY
             </Link>
           </div>
-
         </div>
       </section>
 
-      {/* SOCIAL */}
-      <section className="bg-white px-6 py-20 sm:px-10 lg:px-16">
-        <div className="mx-auto max-w-7xl text-center">
+      {/* ================================================= */}
+      {/* INSTAGRAM / COMMUNITY */}
+      {/* ================================================= */}
 
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-looms-teal">
-            FOLLOW ALONG
+      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10">
+        <div className="mb-8 text-center">
+          <p className="text-[10px] font-medium tracking-[0.16em] text-looms-gray">
+            @LOOMS.OFFICIAL
           </p>
 
-          <h2 className="mt-4 font-serif text-4xl text-looms-teal">
-            @beyond.looms
+          <h2 className="mt-3 font-display text-4xl">
+            In quiet company.
           </h2>
-
-          <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-looms-gray">
-            Discover new releases, styling inspiration,
-            and the everyday world of LOOMS.
-          </p>
-
-          <div className="mt-8">
-            <Link
-              href="/contact"
-              className="inline-flex rounded-full border border-looms-teal px-7 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-looms-teal transition hover:bg-looms-teal hover:text-white"
-            >
-              GET IN TOUCH
-            </Link>
-          </div>
-
         </div>
+
+        {gridProducts.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {gridProducts.map(
+              (product) => (
+                <div
+                  key={product.id}
+                  className="relative aspect-square overflow-hidden rounded-lg"
+                >
+                  <Image
+                    src={product.image}
+                    alt={product.imageAlt}
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover"
+                  />
+                </div>
+              )
+            )}
+          </div>
+        )}
       </section>
 
       <Newsletter />
     </main>
   );
 }
+
