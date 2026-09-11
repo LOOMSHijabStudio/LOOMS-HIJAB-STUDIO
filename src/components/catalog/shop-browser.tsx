@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
+
 import { ProductGrid } from "./product-grid";
 import type { DemoProduct } from "@/features/catalog/demo-data";
 
@@ -11,21 +17,47 @@ type ShopBrowserProps = {
 export function ShopBrowser({
   products,
 }: ShopBrowserProps) {
+  const searchParams = useSearchParams();
+
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [collection, setCollection] = useState("All");
   const [sort, setSort] = useState("featured");
 
   /*
-   * KATEGORI DIAMBIL DARI DATA PRODUK
+   * =====================================================
+   * READ COLLECTION FROM URL
+   * =====================================================
    *
-   * Jadi tidak lagi hardcode:
-   * - The Essential Edit
-   * - Limited Collection
-   * - New Arrivals
+   * /shop?edit=new
+   * -> New arrivals
    *
-   * Kategori akan mengikuti database.
+   * /shop?edit=best
+   * -> Best sellers
    */
+
+  useEffect(() => {
+    const edit = searchParams.get("edit");
+
+    if (edit === "new") {
+      setCollection("New arrivals");
+      return;
+    }
+
+    if (edit === "best") {
+      setCollection("Best sellers");
+      return;
+    }
+
+    setCollection("All");
+  }, [searchParams]);
+
+  /*
+   * =====================================================
+   * CATEGORIES
+   * =====================================================
+   */
+
   const categories = useMemo(() => {
     const uniqueCategories = Array.from(
       new Set(
@@ -40,11 +72,18 @@ export function ShopBrowser({
     );
   }, [products]);
 
+  /*
+   * =====================================================
+   * FILTER + SORT
+   * =====================================================
+   */
+
   const filteredProducts = useMemo(() => {
     const results = products.filter((product) => {
       /*
        * CATEGORY
        */
+
       const matchesCategory =
         category === "All" ||
         product.category === category;
@@ -61,6 +100,7 @@ export function ShopBrowser({
        * Featured:
        * is_featured = true
        */
+
       const matchesCollection =
         collection === "All" ||
         (collection === "New arrivals" &&
@@ -70,14 +110,17 @@ export function ShopBrowser({
         (collection === "Featured" &&
           "isFeatured" in product &&
           Boolean(
-            (product as DemoProduct & {
-              isFeatured?: boolean;
-            }).isFeatured,
+            (
+              product as DemoProduct & {
+                isFeatured?: boolean;
+              }
+            ).isFeatured,
           ));
 
       /*
        * SEARCH
        */
+
       const searchText = query
         .trim()
         .toLowerCase();
@@ -99,8 +142,11 @@ export function ShopBrowser({
     });
 
     /*
+     * =====================================================
      * SORT
+     * =====================================================
      */
+
     return [...results].sort((a, b) => {
       if (sort === "price-low") {
         return a.price - b.price;
@@ -126,15 +172,19 @@ export function ShopBrowser({
 
       if (sort === "featured") {
         const featuredA = Boolean(
-          (a as DemoProduct & {
-            isFeatured?: boolean;
-          }).isFeatured,
+          (
+            a as DemoProduct & {
+              isFeatured?: boolean;
+            }
+          ).isFeatured,
         );
 
         const featuredB = Boolean(
-          (b as DemoProduct & {
-            isFeatured?: boolean;
-          }).isFeatured,
+          (
+            b as DemoProduct & {
+              isFeatured?: boolean;
+            }
+          ).isFeatured,
         );
 
         return (
@@ -157,9 +207,11 @@ export function ShopBrowser({
     <>
       {/* =====================================================
           FILTER BAR
-      ===================================================== */}
+          ===================================================== */}
+
       <div className="mt-10 grid gap-3 border-y border-looms-teal/15 py-4 md:grid-cols-4">
         {/* SEARCH */}
+
         <label className="md:col-span-2">
           <span className="sr-only">
             Search products
@@ -176,6 +228,7 @@ export function ShopBrowser({
         </label>
 
         {/* CATEGORY */}
+
         <label>
           <span className="sr-only">
             Filter category
@@ -206,6 +259,7 @@ export function ShopBrowser({
         </label>
 
         {/* SORT */}
+
         <label>
           <span className="sr-only">
             Sort products
@@ -243,7 +297,8 @@ export function ShopBrowser({
 
       {/* =====================================================
           COLLECTION FILTER
-      ===================================================== */}
+          ===================================================== */}
+
       <div className="mt-3">
         <label>
           <span className="sr-only">
@@ -278,7 +333,8 @@ export function ShopBrowser({
 
       {/* =====================================================
           RESULT COUNT
-      ===================================================== */}
+          ===================================================== */}
+
       <p className="mt-8 text-xs text-looms-gray">
         {filteredProducts.length}{" "}
         {filteredProducts.length === 1
@@ -288,7 +344,8 @@ export function ShopBrowser({
 
       {/* =====================================================
           PRODUCTS
-      ===================================================== */}
+          ===================================================== */}
+
       <div className="mt-6">
         {filteredProducts.length > 0 ? (
           <ProductGrid
@@ -303,3 +360,4 @@ export function ShopBrowser({
     </>
   );
 }
+
