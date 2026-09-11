@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { PromoDeleteButton } from "@/components/admin/promo-delete-button";
+
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/server/auth/session";
 
@@ -114,24 +116,40 @@ export default async function PromoCodesPage() {
       ) : (
         <section className="overflow-hidden rounded-2xl border border-black/10 bg-white">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="border-b border-black/10 bg-black/[0.02]">
                 <tr>
-                  <th className="px-5 py-4 font-medium">Kode</th>
-                  <th className="px-5 py-4 font-medium">Diskon</th>
+                  <th className="px-5 py-4 font-medium">
+                    Kode
+                  </th>
+
+                  <th className="px-5 py-4 font-medium">
+                    Diskon
+                  </th>
+
                   <th className="px-5 py-4 font-medium">
                     Min. Pembelian
                   </th>
+
                   <th className="px-5 py-4 font-medium">
                     Maks. Diskon
                   </th>
+
                   <th className="px-5 py-4 font-medium">
                     Penggunaan
                   </th>
+
                   <th className="px-5 py-4 font-medium">
                     Periode
                   </th>
-                  <th className="px-5 py-4 font-medium">Status</th>
+
+                  <th className="px-5 py-4 font-medium">
+                    Status
+                  </th>
+
+                  <th className="px-5 py-4 font-medium">
+                    Aksi
+                  </th>
                 </tr>
               </thead>
 
@@ -139,7 +157,7 @@ export default async function PromoCodesPage() {
                 {promoCodes.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-5 py-16 text-center text-sm text-looms-gray"
                     >
                       Belum ada promo code.
@@ -191,7 +209,9 @@ export default async function PromoCodesPage() {
                       </td>
 
                       <td className="px-5 py-5">
-                        <p>{formatDate(promo.starts_at)}</p>
+                        <p>
+                          {formatDate(promo.starts_at)}
+                        </p>
 
                         <p className="mt-1 text-xs text-looms-gray">
                           sampai {formatDate(promo.expires_at)}
@@ -211,6 +231,13 @@ export default async function PromoCodesPage() {
                             ? "Aktif"
                             : "Nonaktif"}
                         </span>
+                      </td>
+
+                      <td className="px-5 py-5">
+                        <PromoDeleteButton
+                          id={promo.id}
+                          code={promo.code}
+                        />
                       </td>
                     </tr>
                   ))
