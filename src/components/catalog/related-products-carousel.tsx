@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export interface RelatedProduct {
   id: string;
@@ -31,9 +31,7 @@ export default function RelatedProductsCarousel({
   const sliderRef = useRef<HTMLDivElement>(null);
 
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(
-    products.length > 4
-  );
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   function updateButtons() {
     const slider = sliderRef.current;
@@ -52,7 +50,32 @@ export default function RelatedProductsCarousel({
     );
   }
 
-  function scroll(direction: "left" | "right") {
+  useEffect(() => {
+    updateButtons();
+
+    const slider = sliderRef.current;
+
+    if (!slider) {
+      return;
+    }
+
+    const handleResize = () => {
+      updateButtons();
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener(
+        "resize",
+        handleResize
+      );
+    };
+  }, [products.length]);
+
+  function scrollProducts(
+    direction: "left" | "right"
+  ) {
     const slider = sliderRef.current;
 
     if (!slider) {
@@ -69,7 +92,10 @@ export default function RelatedProductsCarousel({
       behavior: "smooth",
     });
 
-    window.setTimeout(updateButtons, 350);
+    window.setTimeout(
+      updateButtons,
+      350
+    );
   }
 
   if (products.length === 0) {
@@ -78,7 +104,10 @@ export default function RelatedProductsCarousel({
 
   return (
     <section className="mt-24 border-t border-gray-200 pt-12">
-      {/* HEADER */}
+      {/* =========================================
+          HEADER
+      ========================================= */}
+
       <div className="mb-7 flex items-end justify-between gap-5">
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-looms-gray">
@@ -90,13 +119,18 @@ export default function RelatedProductsCarousel({
           </h2>
         </div>
 
-        {/* ARROWS */}
+        {/* =========================================
+            ARROWS
+        ========================================= */}
+
         <div className="flex shrink-0 gap-2">
           {canScrollLeft ? (
             <button
               type="button"
               aria-label="Previous products"
-              onClick={() => scroll("left")}
+              onClick={() =>
+                scrollProducts("left")
+              }
               className="flex h-11 w-11 items-center justify-center border border-gray-300 bg-white text-xl text-looms-teal transition hover:bg-looms-teal hover:text-looms-cream"
             >
               ←
@@ -107,7 +141,9 @@ export default function RelatedProductsCarousel({
             <button
               type="button"
               aria-label="Next products"
-              onClick={() => scroll("right")}
+              onClick={() =>
+                scrollProducts("right")
+              }
               className="flex h-11 w-11 items-center justify-center border border-gray-300 bg-white text-xl text-looms-teal transition hover:bg-looms-teal hover:text-looms-cream"
             >
               →
@@ -116,7 +152,10 @@ export default function RelatedProductsCarousel({
         </div>
       </div>
 
-      {/* PRODUCT SLIDER */}
+      {/* =========================================
+          PRODUCT SLIDER
+      ========================================= */}
+
       <div
         ref={sliderRef}
         onScroll={updateButtons}
@@ -139,18 +178,29 @@ export default function RelatedProductsCarousel({
               href={`/shop/${product.slug}`}
               className="group block w-[72vw] shrink-0 sm:w-[42vw] md:w-[29vw] lg:w-[23%]"
             >
-              {/* FOTO */}
+              {/* =====================================
+                  FOTO PRODUK
+              ===================================== */}
+
               <div className="relative aspect-[4/5] overflow-hidden bg-[#f2eee9]">
                 <Image
                   src={product.image}
                   alt={product.name}
                   fill
-                  sizes="(max-width: 640px) 72vw, (max-width: 768px) 42vw, (max-width: 1024px) 29vw, 23vw"
+                  sizes="
+                    (max-width: 640px) 72vw,
+                    (max-width: 768px) 42vw,
+                    (max-width: 1024px) 29vw,
+                    23vw
+                  "
                   className="object-cover transition duration-500 group-hover:scale-[1.03]"
                 />
               </div>
 
-              {/* PRODUCT INFO */}
+              {/* =====================================
+                  NAMA + HARGA
+              ===================================== */}
+
               <div className="pt-4">
                 <h3 className="text-sm font-medium text-looms-teal transition group-hover:opacity-70">
                   {product.name}
@@ -160,16 +210,22 @@ export default function RelatedProductsCarousel({
                   {salePrice !== null ? (
                     <>
                       <span className="text-sm text-looms-teal">
-                        {formatRupiah(salePrice)}
+                        {formatRupiah(
+                          salePrice
+                        )}
                       </span>
 
                       <span className="text-xs text-looms-gray line-through">
-                        {formatRupiah(product.price)}
+                        {formatRupiah(
+                          product.price
+                        )}
                       </span>
                     </>
                   ) : (
                     <span className="text-sm text-looms-gray">
-                      {formatRupiah(product.price)}
+                      {formatRupiah(
+                        product.price
+                      )}
                     </span>
                   )}
                 </div>
