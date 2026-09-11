@@ -7,7 +7,9 @@ export async function POST(request: Request) {
   try {
     if (!isSupabaseConfigured()) {
       return NextResponse.json(
-        { error: "Supabase belum dikonfigurasi." },
+        {
+          error: "Supabase belum dikonfigurasi.",
+        },
         { status: 500 }
       );
     }
@@ -18,9 +20,13 @@ export async function POST(request: Request) {
       .trim()
       .toUpperCase();
 
-    const discountType = String(body.discount_type || "").trim();
+    const discountType = String(
+      body.discount_type || ""
+    ).trim();
 
-    const discountValue = Number(body.discount_value || 0);
+    const discountValue = Number(
+      body.discount_value || 0
+    );
 
     const minimumPurchase = Number(
       body.minimum_purchase || 0
@@ -47,7 +53,9 @@ export async function POST(request: Request) {
 
     if (!code) {
       return NextResponse.json(
-        { error: "Kode promo wajib diisi." },
+        {
+          error: "Kode promo wajib diisi.",
+        },
         { status: 400 }
       );
     }
@@ -67,7 +75,9 @@ export async function POST(request: Request) {
       discountType !== "fixed"
     ) {
       return NextResponse.json(
-        { error: "Tipe diskon tidak valid." },
+        {
+          error: "Tipe diskon tidak valid.",
+        },
         { status: 400 }
       );
     }
@@ -77,7 +87,9 @@ export async function POST(request: Request) {
       discountValue <= 0
     ) {
       return NextResponse.json(
-        { error: "Nilai diskon harus lebih dari 0." },
+        {
+          error: "Nilai diskon harus lebih dari 0.",
+        },
         { status: 400 }
       );
     }
@@ -124,7 +136,8 @@ export async function POST(request: Request) {
 
     if (
       usageLimit !== null &&
-      (!Number.isInteger(usageLimit) || usageLimit <= 0)
+      (!Number.isInteger(usageLimit) ||
+        usageLimit <= 0)
     ) {
       return NextResponse.json(
         {
@@ -144,7 +157,9 @@ export async function POST(request: Request) {
         Number.isNaN(endDate.getTime())
       ) {
         return NextResponse.json(
-          { error: "Tanggal promo tidak valid." },
+          {
+            error: "Tanggal promo tidak valid.",
+          },
           { status: 400 }
         );
       }
@@ -177,8 +192,7 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error:
-            "Gagal memeriksa kode promo. Silakan coba lagi.",
+          error: existingError.message,
         },
         { status: 500 }
       );
@@ -193,23 +207,30 @@ export async function POST(request: Request) {
       );
     }
 
+    const promoData = {
+      code,
+      discount_type: discountType,
+      discount_value: discountValue,
+      minimum_purchase: minimumPurchase,
+      maximum_discount:
+        discountType === "percentage"
+          ? maximumDiscount
+          : null,
+      usage_limit: usageLimit,
+      used_count: 0,
+      starts_at: startsAt,
+      expires_at: expiresAt,
+      is_active: isActive,
+    };
+
+    console.log(
+      "Promo code insert data:",
+      promoData
+    );
+
     const { data, error } = await supabase
       .from("promo_codes")
-      .insert({
-        code,
-        discount_type: discountType,
-        discount_value: discountValue,
-        minimum_purchase: minimumPurchase,
-        maximum_discount:
-          discountType === "percentage"
-            ? maximumDiscount
-            : null,
-        usage_limit: usageLimit,
-        used_count: 0,
-        starts_at: startsAt,
-        expires_at: expiresAt,
-        is_active: isActive,
-      })
+      .insert(promoData)
       .select()
       .single();
 
@@ -221,8 +242,10 @@ export async function POST(request: Request) {
 
       return NextResponse.json(
         {
-          error:
-            "Promo code gagal disimpan ke database.",
+          error: error.message,
+          details: error.details || null,
+          hint: error.hint || null,
+          code: error.code || null,
         },
         { status: 500 }
       );
@@ -244,7 +267,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Terjadi kesalahan saat menyimpan promo code.",
+          error instanceof Error
+            ? error.message
+            : "Terjadi kesalahan saat menyimpan promo code.",
       },
       { status: 500 }
     );
