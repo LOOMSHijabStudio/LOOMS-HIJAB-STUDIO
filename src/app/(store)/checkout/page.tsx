@@ -18,7 +18,6 @@ const shippingRates: Record<string, number> = {
   "Jawa Tengah": 15000,
   "DI Yogyakarta": 15000,
   "Jawa Timur": 15000,
-
   "Sumatera Selatan": 30000,
   Lampung: 30000,
   "Sumatera Barat": 35000,
@@ -29,27 +28,22 @@ const shippingRates: Record<string, number> = {
   Aceh: 45000,
   "Kepulauan Riau": 40000,
   "Kepulauan Bangka Belitung": 40000,
-
   Bali: 30000,
   "Nusa Tenggara Barat": 35000,
   "Nusa Tenggara Timur": 40000,
-
   "Kalimantan Barat": 40000,
   "Kalimantan Tengah": 40000,
   "Kalimantan Selatan": 40000,
   "Kalimantan Timur": 45000,
   "Kalimantan Utara": 50000,
-
   "Sulawesi Selatan": 45000,
   "Sulawesi Barat": 45000,
   "Sulawesi Tengah": 50000,
   "Sulawesi Tenggara": 50000,
   "Sulawesi Utara": 50000,
   Gorontalo: 50000,
-
   Maluku: 55000,
   "Maluku Utara": 60000,
-
   Papua: 65000,
   "Papua Barat": 65000,
   "Papua Selatan": 70000,
@@ -100,6 +94,12 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoMessage, setPromoMessage] = useState("");
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+
   const [form, setForm] = useState({
     fullName: "",
     whatsappNumber: "",
@@ -123,6 +123,11 @@ export default function CheckoutPage() {
           ? shippingRates[form.province] ?? 15000
           : 0;
 
+  const total = Math.max(
+    0,
+    subtotal + shipping - promoDiscount
+  );
+
   function update(
     field: keyof typeof form,
     value: string
@@ -139,6 +144,68 @@ export default function CheckoutPage() {
       province: value,
       city: "",
     }));
+  }
+
+  async function applyPromo() {
+    const code = promoCode.trim().toUpperCase();
+
+    if (!code) {
+      setPromoMessage("Masukkan kode promo terlebih dahulu.");
+      return;
+    }
+
+    setIsApplyingPromo(true);
+    setPromoMessage("");
+
+    try {
+      const response = await fetch(
+        "/api/promo-codes/validate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            code,
+            subtotal,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        setAppliedPromoCode("");
+        setPromoDiscount(0);
+        setPromoMessage(
+          result.error || "Kode promo tidak dapat digunakan."
+        );
+        return;
+      }
+
+      setAppliedPromoCode(code);
+      setPromoDiscount(Number(result.discount || 0));
+      setPromoMessage(
+        result.message || "Kode promo berhasil digunakan."
+      );
+    } catch (error) {
+      console.error("Promo validation error:", error);
+
+      setAppliedPromoCode("");
+      setPromoDiscount(0);
+      setPromoMessage(
+        "Kode promo tidak dapat diperiksa. Silakan coba lagi."
+      );
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  }
+
+  function removePromo() {
+    setPromoCode("");
+    setAppliedPromoCode("");
+    setPromoDiscount(0);
+    setPromoMessage("");
   }
 
   async function submit(
@@ -183,6 +250,9 @@ export default function CheckoutPage() {
           fullAddress: form.fullAddress.trim(),
           notes: form.notes.trim() || undefined,
         },
+
+        promoCode: appliedPromoCode || undefined,
+        promoDiscount: promoDiscount || 0,
       };
 
       const response = await fetch(
@@ -563,6 +633,61 @@ export default function CheckoutPage() {
             })}
           </div>
 
+          <div className="mt-6 border-t border-looms-teal/15 pt-5">
+            <p className="text-sm font-medium">
+              Promo Code
+            </p>
+
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(event) =>
+                  setPromoCode(
+                    event.target.value.toUpperCase()
+                  )
+                }
+                disabled={isApplyingPromo || !!appliedPromoCode}
+                placeholder="Masukkan kode promo"
+                className="min-w-0 flex-1 border border-looms-teal/20 bg-white px-3 py-3 text-sm uppercase outline-none transition focus:border-looms-teal disabled:bg-black/5"
+              />
+
+              {appliedPromoCode ? (
+                <button
+                  type="button"
+                  onClick={removePromo}
+                  className="border border-looms-teal/20 px-4 py-3 text-xs font-medium text-looms-teal transition hover:bg-black/5"
+                >
+                  Hapus
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={applyPromo}
+                  disabled={isApplyingPromo}
+                  className="bg-looms-teal px-4 py-3 text-xs font-medium text-looms-cream transition hover:bg-looms-teal/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isApplyingPromo
+                    ? "..."
+                    : "Pakai"}
+                </button>
+              )}
+            </div>
+
+            {promoMessage && (
+              <p
+                className={[
+                  "mt-2 text-xs",
+                  promoDiscount > 0
+                    ? "text-green-700"
+                    : "text-red-600",
+                ].join(" ")}
+              >
+                {promoMessage}
+              </p>
+            )}
+          </div>
+
           <div className="mt-6 space-y-3 border-t border-looms-teal/15 pt-5 text-sm">
             <div className="flex justify-between">
               <span>Subtotal</span>
@@ -571,6 +696,21 @@ export default function CheckoutPage() {
                 {money(subtotal)}
               </span>
             </div>
+
+            {promoDiscount > 0 && (
+              <div className="flex justify-between text-green-700">
+                <span>
+                  Promo{" "}
+                  {appliedPromoCode
+                    ? `(${appliedPromoCode})`
+                    : ""}
+                </span>
+
+                <span>
+                  -{money(promoDiscount)}
+                </span>
+              </div>
+            )}
 
             <div className="flex justify-between">
               <span>Shipping</span>
@@ -586,9 +726,7 @@ export default function CheckoutPage() {
               <span>Total</span>
 
               <span>
-                {money(
-                  subtotal + shipping
-                )}
+                {money(total)}
               </span>
             </div>
           </div>
