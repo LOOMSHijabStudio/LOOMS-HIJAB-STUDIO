@@ -361,43 +361,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ================================================= */}
-      {/* INSTAGRAM / COMMUNITY */}
-      {/* ================================================= */}
-
-      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10">
-        <div className="mb-8 text-center">
-          <p className="text-[10px] font-medium tracking-[0.16em] text-looms-gray">
-            @LOOMS.OFFICIAL
-          </p>
-
-          <h2 className="mt-3 font-display text-4xl">
-            In quiet company.
-          </h2>
-        </div>
-
-        {gridProducts.length > 0 && (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {gridProducts.map(
-              (product) => (
-                <div
-                  key={product.id}
-                  className="relative aspect-square overflow-hidden rounded-lg"
-                >
-                  <Image
-                    src={product.image}
-                    alt={product.imageAlt}
-                    fill
-                    sizes="(max-width: 768px) 50vw, 25vw"
-                    className="object-cover"
-                  />
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </section>
-
       <Newsletter />
     </main>
   );
