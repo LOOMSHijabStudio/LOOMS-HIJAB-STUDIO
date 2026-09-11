@@ -453,6 +453,9 @@ export default function AdminProductsPage() {
 
       /* -----------------------------------------------
          UPLOAD ADDITIONAL IMAGES
+         
+         SETIAP FOTO DIKIRIM KE ENDPOINT
+         YANG SAMA.
       ------------------------------------------------ */
 
       if (
@@ -666,7 +669,6 @@ export default function AdminProductsPage() {
       {successMsg && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-800">
           <span>✓</span>
-
           <span>
             {successMsg}
           </span>
