@@ -19,10 +19,6 @@ export const dynamic = "force-dynamic";
    ===================================================== */
 
 async function getCatalogProducts(): Promise<DemoProduct[]> {
-  // =====================================================
-  // WEBSITE PUBLIC HANYA MENGAMBIL DATA DARI SUPABASE
-  // =====================================================
-
   if (!isSupabaseConfigured()) {
     console.error("Supabase belum dikonfigurasi.");
     return [];
@@ -67,7 +63,6 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
         "Gagal mengambil produk dari Supabase:",
         error
       );
-
       return [];
     }
 
@@ -79,10 +74,6 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
           position: number;
         }>;
 
-      /* =================================================
-         CARI GAMBAR UTAMA
-         ================================================= */
-
       const primaryImage =
         images.find(
           (image) => image.is_primary
@@ -93,16 +84,8 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             (b.position ?? 0)
         )[0];
 
-      /* =================================================
-         DEFAULT IMAGE
-         ================================================= */
-
       let imageUrl =
         "/images/editorial-mocha.svg";
-
-      /* =================================================
-         SUPABASE STORAGE IMAGE
-         ================================================= */
 
       if (primaryImage?.storage_path) {
         imageUrl =
@@ -114,24 +97,15 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             .data.publicUrl;
       }
 
-      /* =================================================
-         PRODUCT MAPPING
-         ================================================= */
-
       return {
         id: product.id,
-
         slug: product.slug,
-
         name: product.name,
-
         category:
           "The Essential Edit",
-
         price: Number(
           product.price ?? 0
         ),
-
         salePrice:
           product.sale_price !== null &&
           product.sale_price !== undefined
@@ -139,34 +113,24 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
                 product.sale_price
               )
             : undefined,
-
         image: imageUrl,
-
         imageAlt: product.name,
-
         description:
           product.description ?? "",
-
         material:
           product.material ??
           "Premium Satin Voile",
-
         care: "Hand wash cold.",
-
         stock: Number(
           product.stock ?? 0
         ),
-
         isNew: Boolean(
           product.is_new_arrival
         ),
-
         isBestSeller: Boolean(
           product.is_best_seller
         ),
-
         variants: [],
-
         variantIds: {},
       };
     });
@@ -175,7 +139,6 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
       "Catalog products error:",
       error
     );
-
     return [];
   }
 }
@@ -185,27 +148,11 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
    ===================================================== */
 
 export default async function HomePage() {
-  /* ===================================================
-     WEBSITE APPEARANCE
-     =================================================== */
-
   const appearance =
     await getWebsiteAppearance();
 
-  /* ===================================================
-     SEMUA PRODUK AKTIF
-     =================================================== */
-
   const gridProducts =
     await getCatalogProducts();
-
-  /* ===================================================
-     NEW ARRIVALS
-     
-     PRIORITAS:
-     1. Produk yang ditandai is_new_arrival
-     2. Kalau belum ada, gunakan produk terbaru
-     =================================================== */
 
   const markedNewArrivals =
     gridProducts.filter(
@@ -216,16 +163,6 @@ export default async function HomePage() {
     markedNewArrivals.length > 0
       ? markedNewArrivals
       : gridProducts.slice(0, 4);
-
-  /* ===================================================
-     BEST SELLERS
-
-     PRIORITAS:
-     1. Produk yang ditandai is_best_seller
-     2. Kalau belum ada, gunakan produk aktif
-     
-     Jadi section TIDAK HILANG.
-     =================================================== */
 
   const markedBestSellers =
     gridProducts.filter(
@@ -239,17 +176,12 @@ export default async function HomePage() {
 
   return (
     <main>
-
-      {/* =================================================
-          HERO SECTION
-          ================================================= */}
+      {/* =====================================================
+          HERO
+          ===================================================== */}
 
       <section className="grid min-h-[calc(100svh-6.5rem)] bg-[#d3c4b6] lg:grid-cols-[1fr_1.2fr]">
-
-        {/* HERO TEXT */}
-
         <div className="order-2 flex flex-col justify-center px-6 py-16 lg:order-1 lg:px-[max(3rem,8vw)]">
-
           <p className="text-[10px] font-medium tracking-[0.18em] text-looms-gray">
             {appearance.heroEyebrow}
           </p>
@@ -263,7 +195,6 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-9 flex flex-wrap gap-4">
-
             <Link
               href="/shop"
               className="bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] text-looms-cream transition hover:bg-looms-teal/90"
@@ -277,15 +208,10 @@ export default async function HomePage() {
             >
               EXPLORE NEW ARRIVALS
             </Link>
-
           </div>
-
         </div>
 
-        {/* HERO MEDIA */}
-
         <div className="relative order-1 min-h-[52svh] overflow-hidden lg:order-2 lg:min-h-0">
-
           <img
             src={
               appearance.heroImage ||
@@ -295,82 +221,54 @@ export default async function HomePage() {
             className="absolute inset-0 h-full w-full object-cover motion-safe:animate-[pulse_8s_ease-in-out_infinite]"
             loading="eager"
           />
-
         </div>
-
       </section>
 
+      {/* =====================================================
+          ESSENTIAL EDIT
+          ===================================================== */}
 
-      {/* =================================================
-          THE ESSENTIAL EDIT
-          SEMUA PRODUK AKTIF
-          ================================================= */}
-
-      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
-
+      <section className="mx-auto max-w-[1440px] bg-white px-5 py-20 lg:px-10 lg:py-28">
         <SectionHeading
           eyebrow="THE ESSENTIAL EDIT"
           title="Considered essentials."
         />
 
         {gridProducts.length > 0 ? (
-
-          <ProductGrid
-            products={gridProducts}
-          />
-
+          <ProductGrid products={gridProducts} />
         ) : (
-
           <div className="py-20 text-center">
-
             <p className="text-sm tracking-[0.08em] text-looms-gray">
               BELUM ADA PRODUK AKTIF
             </p>
-
           </div>
-
         )}
-
       </section>
 
-
-      {/* =================================================
+      {/* =====================================================
           NEW ARRIVALS
-          ================================================= */}
+          ===================================================== */}
 
       {newArrivalProducts.length > 0 && (
-
-        <section className="bg-[#f4eee8]">
-
+        <section className="bg-white">
           <div className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
-
             <SectionHeading
               eyebrow="JUST IN"
               title="New arrivals."
               href="/shop?edit=new"
             />
 
-            <ProductGrid
-              products={newArrivalProducts}
-            />
-
+            <ProductGrid products={newArrivalProducts} />
           </div>
-
         </section>
-
       )}
 
-
-      {/* =================================================
+      {/* =====================================================
           EDITORIAL BANNER
-          ================================================= */}
+          ===================================================== */}
 
       <section className="grid bg-looms-teal text-looms-cream lg:grid-cols-2">
-
-        {/* EDITORIAL MEDIA */}
-
         <div className="relative min-h-[28rem] overflow-hidden">
-
           <img
             src={
               appearance.editorialImage ||
@@ -380,15 +278,10 @@ export default async function HomePage() {
             className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
           />
-
         </div>
 
-        {/* EDITORIAL TEXT */}
-
         <div className="flex items-center px-6 py-20 lg:px-[max(3rem,8vw)]">
-
           <div>
-
             <p className="text-[10px] font-medium tracking-[0.16em] text-looms-cream/65">
               {appearance.editorialEyebrow}
             </p>
@@ -407,20 +300,15 @@ export default async function HomePage() {
             >
               DISCOVER THE EDIT
             </Link>
-
           </div>
-
         </div>
-
       </section>
 
-
-      {/* =================================================
+      {/* =====================================================
           BEST SELLERS
-          ================================================= */}
+          ===================================================== */}
 
-      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
-
+      <section className="mx-auto max-w-[1440px] bg-white px-5 py-20 lg:px-10 lg:py-28">
         <SectionHeading
           eyebrow="WORN &amp; LOVED"
           title="Best sellers."
@@ -428,36 +316,22 @@ export default async function HomePage() {
         />
 
         {bestSellerProducts.length > 0 ? (
-
-          <ProductGrid
-            products={bestSellerProducts}
-          />
-
+          <ProductGrid products={bestSellerProducts} />
         ) : (
-
           <div className="py-20 text-center">
-
             <p className="text-sm tracking-[0.08em] text-looms-gray">
               BELUM ADA PRODUK
             </p>
-
           </div>
-
         )}
-
       </section>
 
-
-      {/* =================================================
-          STORY BANNER
-          ================================================= */}
+      {/* =====================================================
+          STORY
+          ===================================================== */}
 
       <section className="grid bg-[#b98f75] lg:grid-cols-[1.15fr_.85fr]">
-
-        {/* STORY IMAGE */}
-
         <div className="relative min-h-[26rem] overflow-hidden">
-
           <Image
             src={
               appearance.storyImage ||
@@ -468,15 +342,10 @@ export default async function HomePage() {
             sizes="(max-width: 1024px) 100vw, 60vw"
             className="object-cover"
           />
-
         </div>
 
-        {/* STORY TEXT */}
-
         <div className="flex items-center px-6 py-16 lg:px-[max(3rem,8vw)]">
-
           <div>
-
             <p className="text-[10px] font-medium tracking-[0.16em] text-looms-teal/70">
               THE LOOMS WAY
             </p>
@@ -495,20 +364,15 @@ export default async function HomePage() {
             >
               OUR STORY
             </Link>
-
           </div>
-
         </div>
-
       </section>
 
-
-      {/* =================================================
+      {/* =====================================================
           NEWSLETTER
-          ================================================= */}
+          ===================================================== */}
 
       <Newsletter />
-
     </main>
   );
 }
