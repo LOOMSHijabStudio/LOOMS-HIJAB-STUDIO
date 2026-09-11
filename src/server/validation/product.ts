@@ -1,7 +1,10 @@
 import "server-only";
 import { z } from "zod";
 
-// Product validation schemas
+// =====================================================
+// PRODUCT VALIDATION
+// =====================================================
+
 export const productCreateSchema = z.object({
   name: z.string().min(1).max(200),
 
@@ -9,7 +12,10 @@ export const productCreateSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format"),
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Invalid slug format"
+    ),
 
   description: z.string().optional(),
 
@@ -39,15 +45,22 @@ export const productCreateSchema = z.object({
 
   is_best_seller: z.boolean().optional(),
 
-  status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).optional(),
+  status: z
+    .enum(["DRAFT", "ACTIVE", "ARCHIVED"])
+    .optional(),
 });
 
-export const productUpdateSchema = productCreateSchema.partial();
+export const productUpdateSchema =
+  productCreateSchema.partial();
 
 export const priceUpdateSchema = z.object({
   price: z.number().positive().optional(),
 
-  sale_price: z.number().positive().optional().nullable(),
+  sale_price: z
+    .number()
+    .positive()
+    .optional()
+    .nullable(),
 });
 
 export const stockUpdateSchema = z.object({
@@ -61,7 +74,11 @@ export const variantSchema = z.object({
 
   image_path: z.string().optional(),
 
-  price: z.number().positive().optional().nullable(),
+  price: z
+    .number()
+    .positive()
+    .optional()
+    .nullable(),
 
   stock: z.number().int().min(0).optional(),
 });
@@ -73,7 +90,10 @@ export const categorySchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format"),
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Invalid slug format"
+    ),
 
   description: z.string().optional(),
 
@@ -82,7 +102,10 @@ export const categorySchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 
-// Collection validation schema
+// =====================================================
+// COLLECTION
+// =====================================================
+
 export const collectionSchema = z.object({
   name: z.string().min(1).max(200),
 
@@ -90,43 +113,72 @@ export const collectionSchema = z.object({
     .string()
     .min(1)
     .max(100)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format"),
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Invalid slug format"
+    ),
 
   description: z.string().optional(),
 
-  // Bisa menerima string, undefined, atau null
-  cover_image_path: z.string().optional().nullable(),
+  cover_image_path:
+    z.string().optional().nullable(),
 
-  // Bisa menerima string, undefined, atau null
-  banner_image_path: z.string().optional().nullable(),
+  banner_image_path:
+    z.string().optional().nullable(),
 
   position: z.number().int().min(0).optional(),
 });
 
-// Image upload validation
-export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+// =====================================================
+// IMAGE UPLOAD VALIDATION
+// =====================================================
+//
+// FORMAT YANG DIIZINKAN:
+//
+// JPG
+// JPEG
+// PNG
+// WEBP
+// GIF
+//
+// FORMAT LAIN DITOLAK.
+//
+// Word / PDF / Excel / ZIP / RAR / EXE / dll
+// tidak akan diterima.
+// =====================================================
+
+export const MAX_FILE_SIZE =
+  5 * 1024 * 1024; // 5 MB
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
-];
+  "image/gif",
+] as const;
 
 export const ALLOWED_IMAGE_EXTENSIONS = [
   "jpg",
   "jpeg",
   "png",
   "webp",
-];
+  "gif",
+] as const;
 
-// Image dimension constraints
+// =====================================================
+// IMAGE DIMENSIONS
+// =====================================================
+
 export const MIN_IMAGE_WIDTH = 100;
 export const MIN_IMAGE_HEIGHT = 100;
 
 export const MAX_IMAGE_WIDTH = 8000;
 export const MAX_IMAGE_HEIGHT = 8000;
 
-// Types
+// =====================================================
+// TYPES
+// =====================================================
+
 export type ProductCreateInput =
   z.infer<typeof productCreateSchema>;
 
