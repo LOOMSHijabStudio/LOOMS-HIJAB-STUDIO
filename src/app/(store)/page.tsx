@@ -99,13 +99,18 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
 
       return {
         id: product.id,
+
         slug: product.slug,
+
         name: product.name,
+
         category:
           "The Essential Edit",
+
         price: Number(
           product.price ?? 0
         ),
+
         salePrice:
           product.sale_price !== null &&
           product.sale_price !== undefined
@@ -113,24 +118,38 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
                 product.sale_price
               )
             : undefined,
+
         image: imageUrl,
+
         imageAlt: product.name,
+
         description:
           product.description ?? "",
+
         material:
           product.material ??
           "Premium Satin Voile",
+
         care: "Hand wash cold.",
+
         stock: Number(
           product.stock ?? 0
         ),
+
+        availability: String(
+          product.availability ?? "regular"
+        ).toLowerCase(),
+
         isNew: Boolean(
           product.is_new_arrival
         ),
+
         isBestSeller: Boolean(
           product.is_best_seller
         ),
+
         variants: [],
+
         variantIds: {},
       };
     });
