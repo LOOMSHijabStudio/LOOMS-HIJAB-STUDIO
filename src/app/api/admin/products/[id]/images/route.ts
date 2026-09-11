@@ -23,33 +23,62 @@ interface ImageUploadResponse {
   error?: string;
 }
 
+interface ImageDeleteResponse {
+  success: boolean;
+  error?: string;
+}
+
+async function checkAdminPermission() {
+  const verification = await verifyAdminRequest();
+
+  if (!verification.success) {
+    return {
+      allowed: false,
+      response: verification.response,
+    };
+  }
+
+  const isAdmin = await userHasRole("ADMIN");
+  const isOwner = await userHasRole("OWNER");
+
+  if (!isAdmin && !isOwner) {
+    return {
+      allowed: false,
+      response: NextResponse.json(
+        {
+          success: false,
+          error: "Unauthorized",
+        },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return {
+    allowed: true,
+    response: null,
+  };
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse<ImageUploadResponse>> {
   try {
-    const verification = await verifyAdminRequest();
-    if (!verification.success) {
-      return verification.response as NextResponse<ImageUploadResponse>;
-    }
+    const permission = await checkAdminPermission();
 
-    // Check authorization - ADMIN or OWNER
-    const isAdmin = await userHasRole("ADMIN");
-    const isOwner = await userHasRole("OWNER");
-    const hasPermission = isAdmin || isOwner;
-
-    if (!hasPermission) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 403 }
-      );
+    if (!permission.allowed) {
+      return permission.response as NextResponse<ImageUploadResponse>;
     }
 
     const { id: productId } = await context.params;
 
     if (!productId) {
       return NextResponse.json(
-        { success: false, error: "Product ID is required" },
+        {
+          success: false,
+          error: "Product ID is required",
+        },
         { status: 400 }
       );
     }
@@ -60,42 +89,67 @@ export async function POST(
 
     if (!(image instanceof File)) {
       return NextResponse.json(
-        { success: false, error: "No image file provided" },
+        {
+          success: false,
+          error: "No image file provided",
+        },
         { status: 400 }
       );
     }
+
     const file = image;
 
     // Check for malicious SVG
     const isMalicious = await isMaliciousSVG(file);
+
     if (isMalicious) {
       return NextResponse.json(
-        { success: false, error: "SVG files are not allowed" },
+        {
+          success: false,
+          error: "SVG files are not allowed",
+        },
         { status: 400 }
       );
     }
 
     // Validate image file
     const fileValidation = await validateImageFile(file);
+
     if (!fileValidation.valid) {
       return NextResponse.json(
-        { success: false, error: fileValidation.error },
+        {
+          success: false,
+          error: fileValidation.error,
+        },
         { status: 400 }
       );
     }
 
+    // Local development fallback
     if (!isSupabaseConfigured()) {
-      const product = getLocalProducts().find((item) => item.id === productId);
+      const product = getLocalProducts().find(
+        (item) => item.id === productId
+      );
+
       if (!product) {
         return NextResponse.json(
-          { success: false, error: "Product not found" },
+          {
+            success: false,
+            error: "Product not found",
+          },
           { status: 404 }
         );
       }
 
-      const imageData = Buffer.from(await file.arrayBuffer()).toString("base64");
+      const imageData = Buffer.from(
+        await file.arrayBuffer()
+      ).toString("base64");
+
       const dataUrl = `data:${fileValidation.mimeType};base64,${imageData}`;
-      updateLocalProduct(productId, { image: dataUrl });
+
+      updateLocalProduct(productId, {
+        image: dataUrl,
+      });
 
       await logAuditEvent({
         action: "admin.product_image_uploaded",
@@ -129,13 +183,19 @@ export async function POST(
 
     if (productError || !product) {
       return NextResponse.json(
-        { success: false, error: "Product not found" },
+        {
+          success: false,
+          error: "Product not found",
+        },
         { status: 404 }
       );
     }
 
     // Generate safe storage path
-    const storagePath = generateImagePath(productId, file.name);
+    const storagePath = generateImagePath(
+      productId,
+      file.name
+    );
 
     try {
       // Upload to Supabase Storage
@@ -147,39 +207,65 @@ export async function POST(
         });
 
       if (uploadError) {
-        console.error("Storage upload error:", uploadError);
+        console.error(
+          "Storage upload error:",
+          uploadError
+        );
+
         return NextResponse.json(
-          { success: false, error: "Failed to upload image" },
+          {
+            success: false,
+            error: "Failed to upload image",
+          },
           { status: 500 }
         );
       }
 
-      // Get the public URL for the image
+      // Get public URL
       const {
         data: { publicUrl },
-      } = client.storage.from("product-images").getPublicUrl(storagePath);
+      } = client.storage
+        .from("product-images")
+        .getPublicUrl(storagePath);
 
-      const { data: existingImages, error: existingImagesError } = await client
+      // Get existing images
+      const {
+        data: existingImages,
+        error: existingImagesError,
+      } = await client
         .from("product_images")
         .select("id, position, is_primary")
         .eq("product_id", productId)
-        .order("position", { ascending: false });
+        .order("position", {
+          ascending: false,
+        });
 
       if (existingImagesError) {
-        await client.storage.from("product-images").remove([storagePath]);
+        await client.storage
+          .from("product-images")
+          .remove([storagePath]);
+
         return NextResponse.json(
-          { success: false, error: "Failed to read existing product images" },
+          {
+            success: false,
+            error:
+              "Failed to read existing product images",
+          },
           { status: 500 }
         );
       }
 
       const nextPosition =
-        existingImages && existingImages.length > 0
+        existingImages &&
+        existingImages.length > 0
           ? Number(existingImages[0].position) + 1
           : 0;
 
-      // Insert first, then switch the primary flag to avoid position conflicts.
-      const { data: imageRecord, error: dbError } = await client
+      // Insert image record
+      const {
+        data: imageRecord,
+        error: dbError,
+      } = await client
         .from("product_images")
         .insert({
           product_id: productId,
@@ -192,54 +278,111 @@ export async function POST(
         .single();
 
       if (dbError || !imageRecord) {
-        console.error("Database insert error:", dbError);
-        // Clean up uploaded file if DB insert fails
+        console.error(
+          "Database insert error:",
+          dbError
+        );
+
+        // Clean up uploaded file
         await client.storage
           .from("product-images")
           .remove([storagePath]);
 
         return NextResponse.json(
-          { success: false, error: "Failed to save image record" },
+          {
+            success: false,
+            error: "Failed to save image record",
+          },
           { status: 500 }
         );
       }
 
-      const previousPrimaryIds = (existingImages || [])
-        .filter((existingImage) => existingImage.is_primary)
-        .map((existingImage) => existingImage.id);
+      // Get previous primary images
+      const previousPrimaryIds = (
+        existingImages || []
+      )
+        .filter(
+          (existingImage) =>
+            existingImage.is_primary
+        )
+        .map(
+          (existingImage) =>
+            existingImage.id
+        );
 
+      // Remove primary flag from previous image
       if (previousPrimaryIds.length > 0) {
-        const { error: unsetPrimaryError } = await client
+        const {
+          error: unsetPrimaryError,
+        } = await client
           .from("product_images")
-          .update({ is_primary: false })
-          .in("id", previousPrimaryIds);
+          .update({
+            is_primary: false,
+          })
+          .in(
+            "id",
+            previousPrimaryIds
+          );
 
         if (unsetPrimaryError) {
-          await client.from("product_images").delete().eq("id", imageRecord.id);
-          await client.storage.from("product-images").remove([storagePath]);
+          await client
+            .from("product_images")
+            .delete()
+            .eq("id", imageRecord.id);
+
+          await client.storage
+            .from("product-images")
+            .remove([storagePath]);
+
           return NextResponse.json(
-            { success: false, error: "Failed to replace primary image" },
+            {
+              success: false,
+              error:
+                "Failed to replace primary image",
+            },
             { status: 500 }
           );
         }
       }
 
-      const { error: setPrimaryError } = await client
+      // Make newly uploaded image primary
+      const {
+        error: setPrimaryError,
+      } = await client
         .from("product_images")
-        .update({ is_primary: true })
+        .update({
+          is_primary: true,
+        })
         .eq("id", imageRecord.id);
 
       if (setPrimaryError) {
         if (previousPrimaryIds.length > 0) {
           await client
             .from("product_images")
-            .update({ is_primary: true })
-            .in("id", previousPrimaryIds);
+            .update({
+              is_primary: true,
+            })
+            .in(
+              "id",
+              previousPrimaryIds
+            );
         }
-        await client.from("product_images").delete().eq("id", imageRecord.id);
-        await client.storage.from("product-images").remove([storagePath]);
+
+        await client
+          .from("product_images")
+          .delete()
+          .eq("id", imageRecord.id);
+
+        await client.storage
+          .from("product-images")
+          .remove([storagePath]);
+
         return NextResponse.json(
-          { success: false, error: "Failed to set primary image" },
+          {
+            success: false,
+            error:
+              "Failed to set primary image",
+          },
           { status: 500 }
         );
       }
@@ -253,7 +396,8 @@ export async function POST(
           product_id: productId,
           storage_path: storagePath,
           file_size: file.size,
-          file_type: fileValidation.mimeType,
+          file_type:
+            fileValidation.mimeType,
         },
       });
 
@@ -266,16 +410,232 @@ export async function POST(
         { status: 201 }
       );
     } catch (storageError) {
-      console.error("Storage operation error:", storageError);
+      console.error(
+        "Storage operation error:",
+        storageError
+      );
+
       return NextResponse.json(
-        { success: false, error: "Failed to process image upload" },
+        {
+          success: false,
+          error:
+            "Failed to process image upload",
+        },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error("Image upload endpoint error:", error);
+    console.error(
+      "Image upload endpoint error:",
+      error
+    );
+
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      {
+        success: false,
+        error: "Internal server error",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/* =========================================================
+   DELETE PRODUCT IMAGE
+   ========================================================= */
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+): Promise<NextResponse<ImageDeleteResponse>> {
+  try {
+    const permission =
+      await checkAdminPermission();
+
+    if (!permission.allowed) {
+      return permission.response as NextResponse<ImageDeleteResponse>;
+    }
+
+    const { id: productId } =
+      await context.params;
+
+    if (!productId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product ID is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const imageId = body?.imageId;
+
+    if (!imageId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Image ID is required",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!isSupabaseConfigured()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Image deletion requires Supabase",
+        },
+        { status: 400 }
+      );
+    }
+
+    const client =
+      createSupabaseServiceClient();
+
+    // Find the image and make sure
+    // it belongs to this product.
+    const {
+      data: image,
+      error: imageError,
+    } = await client
+      .from("product_images")
+      .select(
+        "id, product_id, storage_path, is_primary, position"
+      )
+      .eq("id", imageId)
+      .eq("product_id", productId)
+      .single();
+
+    if (imageError || !image) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product image not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Delete the physical image
+    // from Supabase Storage.
+    if (image.storage_path) {
+      const {
+        error: storageError,
+      } = await client.storage
+        .from("product-images")
+        .remove([
+          image.storage_path,
+        ]);
+
+      if (storageError) {
+        console.error(
+          "Storage delete error:",
+          storageError
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Failed to delete image from storage",
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Delete database record.
+    const {
+      error: deleteError,
+    } = await client
+      .from("product_images")
+      .delete()
+      .eq("id", imageId)
+      .eq("product_id", productId);
+
+    if (deleteError) {
+      console.error(
+        "Database image delete error:",
+        deleteError
+      );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Failed to delete image record",
+        },
+        { status: 500 }
+      );
+    }
+
+    // If deleted image was primary,
+    // assign another remaining image
+    // as primary.
+    if (image.is_primary) {
+      const {
+        data: remainingImages,
+        error:
+          remainingImagesError,
+      } = await client
+        .from("product_images")
+        .select("id, position")
+        .eq("product_id", productId)
+        .order("position", {
+          ascending: true,
+        })
+        .limit(1);
+
+      if (
+        !remainingImagesError &&
+        remainingImages &&
+        remainingImages.length > 0
+      ) {
+        await client
+          .from("product_images")
+          .update({
+            is_primary: true,
+          })
+          .eq(
+            "id",
+            remainingImages[0].id
+          );
+      }
+    }
+
+    // Log audit event.
+    await logAuditEvent({
+      action:
+        "admin.product_image_deleted",
+      entityType: "product_image",
+      entityId: imageId,
+      metadata: {
+        product_id: productId,
+        storage_path:
+          image.storage_path,
+        was_primary:
+          image.is_primary,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error(
+      "Image delete endpoint error:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Internal server error",
+      },
       { status: 500 }
     );
   }
