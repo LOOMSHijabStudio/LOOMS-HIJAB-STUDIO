@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import type { DemoProduct } from "@/features/catalog/demo-data";
+
 import { ProductDetailPurchase } from "@/components/catalog/product-detail-purchase";
+
+import ProductImageNavigation from "@/components/catalog/product-image-navigation";
+
 import RelatedProductsCarousel from "@/components/catalog/related-products-carousel";
+
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
+
 import { isSupabaseConfigured } from "@/server/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -36,17 +41,35 @@ type Product = {
   name: string;
   slug: string;
   sku: string;
+
   description: string | null;
+
   material: string | null;
+
   care_instructions: string | null;
+
   price: number;
+
   sale_price: number | null;
+
   stock: number;
+
   status: string;
+
   is_new_arrival: boolean;
+
   is_best_seller: boolean;
+
   product_images: ProductImage[];
+
   product_variants: ProductVariant[];
+};
+
+type NavigationProduct = {
+  id: string;
+  name: string;
+  slug: string;
+  image: string;
 };
 
 /* =====================================================
@@ -184,6 +207,118 @@ async function getProduct(
 }
 
 /* =====================================================
+   GET ACTIVE PRODUCTS FOR PHOTO NAVIGATION
+===================================================== */
+
+async function getNavigationProducts() {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const client =
+      createSupabaseServiceClient();
+
+    const {
+      data,
+      error,
+    } = await client
+      .from("products")
+      .select(
+        `
+        id,
+        name,
+        slug,
+        created_at,
+        product_images (
+          storage_path,
+          is_primary,
+          position
+        )
+      `
+      )
+      .eq("status", "ACTIVE")
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(50);
+
+    if (error) {
+      console.error(
+        "Gagal mengambil produk untuk navigasi:",
+        error
+      );
+
+      return [];
+    }
+
+    return (data || []).map(
+      (product) => {
+        const images =
+          (product.product_images ||
+            []) as ProductImage[];
+
+        const sortedImages = [
+          ...images,
+        ].sort(
+          (a, b) =>
+            (a.position ?? 0) -
+            (b.position ?? 0)
+        );
+
+        const primaryImage =
+          sortedImages.find(
+            (image) =>
+              image.is_primary
+          ) ??
+          sortedImages[0];
+
+        let imageUrl =
+          "/images/editorial-mocha.svg";
+
+        if (
+          primaryImage?.storage_path
+        ) {
+          const publicUrl =
+            client.storage
+              .from(
+                "product-images"
+              )
+              .getPublicUrl(
+                primaryImage.storage_path
+              );
+
+          if (
+            publicUrl.data
+              ?.publicUrl
+          ) {
+            imageUrl =
+              publicUrl.data.publicUrl;
+          }
+        }
+
+        return {
+          id: product.id,
+
+          name: product.name,
+
+          slug: product.slug,
+
+          image: imageUrl,
+        };
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Navigation products error:",
+      error
+    );
+
+    return [];
+  }
+}
+
+/* =====================================================
    GET RELATED PRODUCTS
 ===================================================== */
 
@@ -197,13 +332,6 @@ async function getRelatedProducts(
   try {
     const client =
       createSupabaseServiceClient();
-
-    /*
-     * Ambil produk ACTIVE lainnya.
-     *
-     * Produk yang sedang dibuka dikecualikan
-     * menggunakan .neq("id", currentProductId)
-     */
 
     const {
       data,
@@ -226,7 +354,10 @@ async function getRelatedProducts(
       `
       )
       .eq("status", "ACTIVE")
-      .neq("id", currentProductId)
+      .neq(
+        "id",
+        currentProductId
+      )
       .order("created_at", {
         ascending: false,
       })
@@ -431,6 +562,71 @@ export default async function ProductPage({
     createSupabaseServiceClient();
 
   /* ===================================================
+     PRODUCTS UNTUK PANAH
+  =================================================== */
+
+  const navigationProducts =
+    await getNavigationProducts();
+
+  const currentNavigationIndex =
+    navigationProducts.findIndex(
+      (item) =>
+        item.id === product.id
+    );
+
+  let previousProduct:
+    NavigationProduct | null =
+    null;
+
+  let nextProduct:
+    NavigationProduct | null =
+    null;
+
+  if (
+    currentNavigationIndex !==
+      -1 &&
+    navigationProducts.length > 1
+  ) {
+    /*
+     * PANAH KIRI
+     *
+     * Jika sudah di produk pertama,
+     * kembali ke produk terakhir.
+     */
+
+    const previousIndex =
+      currentNavigationIndex ===
+      0
+        ? navigationProducts.length -
+          1
+        : currentNavigationIndex -
+          1;
+
+    /*
+     * PANAH KANAN
+     *
+     * Jika sudah di produk terakhir,
+     * kembali ke produk pertama.
+     */
+
+    const nextIndex =
+      currentNavigationIndex ===
+      navigationProducts.length - 1
+        ? 0
+        : currentNavigationIndex + 1;
+
+    previousProduct =
+      navigationProducts[
+        previousIndex
+      ];
+
+    nextProduct =
+      navigationProducts[
+        nextIndex
+      ];
+  }
+
+  /* ===================================================
      RELATED PRODUCTS
   =================================================== */
 
@@ -517,6 +713,9 @@ export default async function ProductPage({
 
   /* ===================================================
      DATA CART
+     
+     PENTING:
+     ProductDetailPurchase TIDAK DIUBAH.
   =================================================== */
 
   const cartProduct: DemoProduct = {
@@ -609,20 +808,29 @@ export default async function ProductPage({
       <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
 
         {/* =================================================
-            IMAGE
+            IMAGE + PANAH KIRI / KANAN
         ================================================= */}
 
         <div className="relative overflow-hidden bg-[#f2eee9]">
-          <div className="relative aspect-[4/5] w-full">
-            <Image
-              src={mainImage}
-              alt={product.name}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 55vw"
-              className="object-cover"
-            />
-          </div>
+
+          <ProductImageNavigation
+            currentProduct={{
+              id: product.id,
+
+              name: product.name,
+
+              slug: product.slug,
+
+              image: mainImage,
+            }}
+            previousProduct={
+              previousProduct
+            }
+            nextProduct={
+              nextProduct
+            }
+          />
+
         </div>
 
         {/* =================================================
@@ -651,6 +859,7 @@ export default async function ProductPage({
 
           {!hasVariants && (
             <div className="mt-6 flex items-center gap-3">
+
               {salePrice !== null ? (
                 <>
                   <span className="text-lg font-medium text-looms-teal">
@@ -672,6 +881,7 @@ export default async function ProductPage({
                   )}
                 </span>
               )}
+
             </div>
           )}
 
@@ -684,9 +894,15 @@ export default async function ProductPage({
             </p>
           </div>
 
-          {/* PURCHASE */}
+          {/* =================================================
+              PURCHASE
+
+              TETAP MENGGUNAKAN SISTEM LAMA
+              ADD TO BAG + BUY NOW
+          ================================================= */}
 
           <div className="mt-8 max-w-md">
+
             <ProductDetailPurchase
               product={cartProduct}
               variants={
@@ -700,12 +916,16 @@ export default async function ProductPage({
                 displayPrice
               }
             />
+
           </div>
 
-          {/* STOCK */}
+          {/* =================================================
+              STOCK
+          ================================================= */}
 
           {!hasVariants && (
             <div className="mt-7">
+
               {isInStock ? (
                 <p className="text-xs font-medium text-green-700">
                   In stock ·{" "}
@@ -716,17 +936,22 @@ export default async function ProductPage({
                   Sold out
                 </p>
               )}
+
             </div>
           )}
 
-          {/* DETAILS */}
+          {/* =================================================
+              DETAILS
+          ================================================= */}
 
           <div className="mt-10 border-t border-gray-200 pt-7">
+
             <div className="grid gap-5 text-sm">
 
               {/* MATERIAL */}
 
               <div>
+
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   MATERIAL
                 </p>
@@ -735,11 +960,13 @@ export default async function ProductPage({
                   {product.material ||
                     "Premium Satin Voile"}
                 </p>
+
               </div>
 
               {/* CARE */}
 
               <div>
+
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   CARE
                 </p>
@@ -748,11 +975,13 @@ export default async function ProductPage({
                   {product.care_instructions ||
                     "Hand wash cold. Dry flat away from direct sunlight."}
                 </p>
+
               </div>
 
               {/* PRODUCT CODE */}
 
               <div>
+
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   PRODUCT CODE
                 </p>
@@ -760,17 +989,18 @@ export default async function ProductPage({
                 <p className="mt-2 text-looms-gray">
                   {product.sku}
                 </p>
+
               </div>
 
             </div>
+
           </div>
+
         </div>
       </section>
 
       {/* =================================================
           RELATED PRODUCTS
-
-          INI BAGIAN NOMOR 3 + 4
       ================================================= */}
 
       <RelatedProductsCarousel
