@@ -31,9 +31,31 @@ export function PromoDeleteButton({
         body: JSON.stringify({ id }),
       });
 
-      const result = await response.json();
+      const text = await response.text();
+
+      let result: {
+        success?: boolean;
+        error?: string;
+      } = {};
+
+      if (text) {
+        try {
+          result = JSON.parse(text);
+        } catch {
+          throw new Error(
+            `Server mengembalikan response yang tidak valid. Status: ${response.status}`
+          );
+        }
+      }
 
       if (!response.ok) {
+        throw new Error(
+          result.error ||
+            `Promo gagal dihapus. Status: ${response.status}`
+        );
+      }
+
+      if (!result.success) {
         throw new Error(
           result.error || "Promo gagal dihapus."
         );
