@@ -40,9 +40,7 @@ export default function NewPromoCodePage() {
             discountType === "percentage" && maximumDiscount
               ? Number(maximumDiscount)
               : null,
-          usage_limit: usageLimit
-            ? Number(usageLimit)
-            : null,
+          usage_limit: usageLimit ? Number(usageLimit) : null,
           starts_at: startsAt
             ? new Date(startsAt).toISOString()
             : null,
@@ -105,6 +103,7 @@ export default function NewPromoCodePage() {
             <h2 className="text-lg font-semibold">
               Informasi Promo
             </h2>
+
             <p className="mt-1 text-sm text-looms-gray">
               Tentukan kode dan jenis diskon yang diberikan.
             </p>
@@ -159,6 +158,7 @@ export default function NewPromoCodePage() {
                 <option value="percentage">
                   Persentase (%)
                 </option>
+
                 <option value="fixed">
                   Nominal Tetap (Rp)
                 </option>
@@ -207,6 +207,7 @@ export default function NewPromoCodePage() {
             <h2 className="text-lg font-semibold">
               Ketentuan Pembelian
             </h2>
+
             <p className="mt-1 text-sm text-looms-gray">
               Atur syarat penggunaan promo.
             </p>
@@ -235,7 +236,7 @@ export default function NewPromoCodePage() {
               />
 
               <p className="mt-2 text-xs text-looms-gray">
-                Kosongkan atau isi 0 jika tidak ada minimum.
+                Isi 0 jika tidak ada minimum pembelian.
               </p>
             </div>
 
@@ -256,8 +257,8 @@ export default function NewPromoCodePage() {
                 onChange={(event) =>
                   setMaximumDiscount(event.target.value)
                 }
-                disabled={discountType === "fixed"}
                 placeholder="Contoh: 50000"
+                disabled={discountType === "fixed"}
                 className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black disabled:cursor-not-allowed disabled:bg-black/5"
               />
 
@@ -289,7 +290,7 @@ export default function NewPromoCodePage() {
             />
 
             <p className="mt-2 text-xs text-looms-gray">
-              Kosongkan jika promo tidak memiliki batas penggunaan.
+              Kosongkan jika tidak ada batas penggunaan.
             </p>
           </div>
         </section>
@@ -301,6 +302,7 @@ export default function NewPromoCodePage() {
             <h2 className="text-lg font-semibold">
               Periode Promo
             </h2>
+
             <p className="mt-1 text-sm text-looms-gray">
               Tentukan kapan promo mulai dan berakhir.
             </p>
@@ -322,4 +324,79 @@ export default function NewPromoCodePage() {
                 onChange={(event) =>
                   setStartsAt(event.target.value)
                 }
-                className="w-full rounded-xl border
+                className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="expiresAt"
+                className="mb-2 block text-sm font-medium"
+              >
+                Berakhir
+              </label>
+
+              <input
+                id="expiresAt"
+                type="datetime-local"
+                value={expiresAt}
+                onChange={(event) =>
+                  setExpiresAt(event.target.value)
+                }
+                className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm outline-none focus:border-black"
+              />
+            </div>
+          </div>
+        </section>
+
+        <div className="h-px bg-black/5" />
+
+        <section>
+          <label className="flex cursor-pointer items-center gap-3">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(event) =>
+                setIsActive(event.target.checked)
+              }
+              className="h-4 w-4 rounded border-black/20"
+            />
+
+            <span>
+              <span className="block text-sm font-medium">
+                Aktifkan promo
+              </span>
+
+              <span className="mt-1 block text-xs text-looms-gray">
+                Promo dapat digunakan pelanggan saat aktif.
+              </span>
+            </span>
+          </label>
+        </section>
+
+        {errorMessage && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
+          </div>
+        )}
+
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+          <Link
+            href="/admin/promo-codes"
+            className="rounded-xl border border-black/10 px-5 py-3 text-center text-sm font-medium transition hover:bg-black/5"
+          >
+            Batal
+          </Link>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-xl bg-black px-5 py-3 text-sm font-medium text-white transition hover:bg-black/80 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Menyimpan..." : "Simpan Promo"}
+          </button>
+        </div>
+      </form>
+    </main>
+  );
+}
