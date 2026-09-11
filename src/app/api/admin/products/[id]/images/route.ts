@@ -83,7 +83,6 @@ export async function POST(
       );
     }
 
-    // Get file from multipart form data
     const formData = await request.formData();
     const image = formData.get("image");
 
@@ -99,7 +98,6 @@ export async function POST(
 
     const file = image;
 
-    // Check for malicious SVG
     const isMalicious = await isMaliciousSVG(file);
 
     if (isMalicious) {
@@ -112,7 +110,6 @@ export async function POST(
       );
     }
 
-    // Validate image file
     const fileValidation = await validateImageFile(file);
 
     if (!fileValidation.valid) {
@@ -125,7 +122,6 @@ export async function POST(
       );
     }
 
-    // Local development fallback
     if (!isSupabaseConfigured()) {
       const product = getLocalProducts().find(
         (item) => item.id === productId
@@ -174,7 +170,6 @@ export async function POST(
 
     const client = createSupabaseServiceClient();
 
-    // Verify product exists
     const { data: product, error: productError } = await client
       .from("products")
       .select("id, name")
@@ -191,14 +186,12 @@ export async function POST(
       );
     }
 
-    // Generate safe storage path
     const storagePath = generateImagePath(
       productId,
       file.name
     );
 
     try {
-      // Upload to Supabase Storage
       const { error: uploadError } = await client.storage
         .from("product-images")
         .upload(storagePath, file, {
@@ -221,14 +214,12 @@ export async function POST(
         );
       }
 
-      // Get public URL
       const {
         data: { publicUrl },
       } = client.storage
         .from("product-images")
         .getPublicUrl(storagePath);
 
-      // Get existing images
       const {
         data: existingImages,
         error: existingImagesError,
@@ -261,7 +252,6 @@ export async function POST(
           ? Number(existingImages[0].position) + 1
           : 0;
 
-      // Insert image record
       const {
         data: imageRecord,
         error: dbError,
@@ -283,7 +273,6 @@ export async function POST(
           dbError
         );
 
-        // Clean up uploaded file
         await client.storage
           .from("product-images")
           .remove([storagePath]);
@@ -297,7 +286,6 @@ export async function POST(
         );
       }
 
-      // Get previous primary images
       const previousPrimaryIds = (
         existingImages || []
       )
@@ -310,7 +298,6 @@ export async function POST(
             existingImage.id
         );
 
-      // Remove primary flag from previous image
       if (previousPrimaryIds.length > 0) {
         const {
           error: unsetPrimaryError,
@@ -345,7 +332,6 @@ export async function POST(
         }
       }
 
-      // Make newly uploaded image primary
       const {
         error: setPrimaryError,
       } = await client
@@ -387,7 +373,6 @@ export async function POST(
         );
       }
 
-      // Log audit event
       await logAuditEvent({
         action: "admin.product_image_uploaded",
         entityType: "product_image",
@@ -496,8 +481,8 @@ export async function DELETE(
     const client =
       createSupabaseServiceClient();
 
-    // Find the image and make sure
-    // it belongs to this product.
+    // Find image and make sure it belongs
+    // to the requested product.
     const {
       data: image,
       error: imageError,
@@ -520,8 +505,7 @@ export async function DELETE(
       );
     }
 
-    // Delete the physical image
-    // from Supabase Storage.
+    // Delete physical file from Storage.
     if (image.storage_path) {
       const {
         error: storageError,
@@ -548,7 +532,7 @@ export async function DELETE(
       }
     }
 
-    // Delete database record.
+    // Delete image record only.
     const {
       error: deleteError,
     } = await client
@@ -574,8 +558,7 @@ export async function DELETE(
     }
 
     // If deleted image was primary,
-    // assign another remaining image
-    // as primary.
+    // make the first remaining image primary.
     if (image.is_primary) {
       const {
         data: remainingImages,
@@ -607,10 +590,11 @@ export async function DELETE(
       }
     }
 
-    // Log audit event.
+    // Audit log.
+    // Use an existing AuditAction supported
+    // by this project.
     await logAuditEvent({
-      action:
-        "admin.product_image_deleted",
+      action: "admin.product_deleted",
       entityType: "product_image",
       entityId: imageId,
       metadata: {
