@@ -118,11 +118,7 @@ export function ProductCard({
       </button>
 
       <div className="pt-4">
-        <p className="text-[11px] uppercase tracking-[0.12em] text-looms-gray">
-          {product.category}
-        </p>
-
-        <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.12em] text-looms-gray">
+        <p className="text-[10px] font-medium uppercase tracking-[0.12em] text-looms-gray">
           {availabilityLabel}
         </p>
 
