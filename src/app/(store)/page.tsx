@@ -79,9 +79,9 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
           position: number;
         }>;
 
-      // =====================================================
-      // CARI GAMBAR UTAMA
-      // =====================================================
+      /* =================================================
+         CARI GAMBAR UTAMA
+         ================================================= */
 
       const primaryImage =
         images.find(
@@ -93,16 +93,16 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             (b.position ?? 0)
         )[0];
 
-      // =====================================================
-      // DEFAULT IMAGE
-      // =====================================================
+      /* =================================================
+         DEFAULT IMAGE
+         ================================================= */
 
       let imageUrl =
         "/images/editorial-mocha.svg";
 
-      // =====================================================
-      // SUPABASE STORAGE IMAGE
-      // =====================================================
+      /* =================================================
+         SUPABASE STORAGE IMAGE
+         ================================================= */
 
       if (primaryImage?.storage_path) {
         imageUrl =
@@ -114,9 +114,9 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             .data.publicUrl;
       }
 
-      // =====================================================
-      // RETURN PRODUCT
-      // =====================================================
+      /* =================================================
+         PRODUCT MAPPING
+         ================================================= */
 
       return {
         id: product.id,
@@ -185,39 +185,57 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
    ===================================================== */
 
 export default async function HomePage() {
-  // =====================================================
-  // WEBSITE APPEARANCE
-  // =====================================================
+  /* ===================================================
+     WEBSITE APPEARANCE
+     =================================================== */
 
   const appearance =
     await getWebsiteAppearance();
 
-  // =====================================================
-  // AMBIL SEMUA PRODUK AKTIF DARI SUPABASE
-  // =====================================================
+  /* ===================================================
+     SEMUA PRODUK AKTIF
+     =================================================== */
 
   const gridProducts =
     await getCatalogProducts();
 
-  // =====================================================
-  // NEW ARRIVALS
-  // HANYA PRODUCT DENGAN is_new_arrival = TRUE
-  // =====================================================
+  /* ===================================================
+     NEW ARRIVALS
+     
+     PRIORITAS:
+     1. Produk yang ditandai is_new_arrival
+     2. Kalau belum ada, gunakan produk terbaru
+     =================================================== */
 
-  const newArrivalProducts =
+  const markedNewArrivals =
     gridProducts.filter(
       (product) => product.isNew
     );
 
-  // =====================================================
-  // BEST SELLERS
-  // HANYA PRODUCT DENGAN is_best_seller = TRUE
-  // =====================================================
+  const newArrivalProducts =
+    markedNewArrivals.length > 0
+      ? markedNewArrivals
+      : gridProducts.slice(0, 4);
 
-  const bestSellerProducts =
+  /* ===================================================
+     BEST SELLERS
+
+     PRIORITAS:
+     1. Produk yang ditandai is_best_seller
+     2. Kalau belum ada, gunakan produk aktif
+     
+     Jadi section TIDAK HILANG.
+     =================================================== */
+
+  const markedBestSellers =
     gridProducts.filter(
       (product) => product.isBestSeller
     );
+
+  const bestSellerProducts =
+    markedBestSellers.length > 0
+      ? markedBestSellers
+      : gridProducts;
 
   return (
     <main>
@@ -246,16 +264,12 @@ export default async function HomePage() {
 
           <div className="mt-9 flex flex-wrap gap-4">
 
-            {/* SHOP COLLECTION */}
-
             <Link
               href="/shop"
               className="bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] text-looms-cream transition hover:bg-looms-teal/90"
             >
               SHOP COLLECTION
             </Link>
-
-            {/* NEW ARRIVALS */}
 
             <Link
               href="/shop?edit=new"
@@ -268,9 +282,7 @@ export default async function HomePage() {
 
         </div>
 
-        {/* =================================================
-            HERO MEDIA
-            ================================================= */}
+        {/* HERO MEDIA */}
 
         <div className="relative order-1 min-h-[52svh] overflow-hidden lg:order-2 lg:min-h-0">
 
@@ -324,7 +336,6 @@ export default async function HomePage() {
 
       {/* =================================================
           NEW ARRIVALS
-          HANYA is_new_arrival = TRUE
           ================================================= */}
 
       {newArrivalProducts.length > 0 && (
@@ -356,7 +367,7 @@ export default async function HomePage() {
 
       <section className="grid bg-looms-teal text-looms-cream lg:grid-cols-2">
 
-        {/* EDITORIAL IMAGE */}
+        {/* EDITORIAL MEDIA */}
 
         <div className="relative min-h-[28rem] overflow-hidden">
 
@@ -406,26 +417,35 @@ export default async function HomePage() {
 
       {/* =================================================
           BEST SELLERS
-          HANYA is_best_seller = TRUE
           ================================================= */}
 
-      {bestSellerProducts.length > 0 && (
+      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
 
-        <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+        <SectionHeading
+          eyebrow="WORN &amp; LOVED"
+          title="Best sellers."
+          href="/shop?edit=best"
+        />
 
-          <SectionHeading
-            eyebrow="WORN &amp; LOVED"
-            title="Best sellers."
-            href="/shop?edit=best"
-          />
+        {bestSellerProducts.length > 0 ? (
 
           <ProductGrid
             products={bestSellerProducts}
           />
 
-        </section>
+        ) : (
 
-      )}
+          <div className="py-20 text-center">
+
+            <p className="text-sm tracking-[0.08em] text-looms-gray">
+              BELUM ADA PRODUK
+            </p>
+
+          </div>
+
+        )}
+
+      </section>
 
 
       {/* =================================================
@@ -492,4 +512,3 @@ export default async function HomePage() {
     </main>
   );
 }
-
