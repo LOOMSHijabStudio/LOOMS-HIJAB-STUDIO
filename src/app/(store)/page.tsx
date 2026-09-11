@@ -6,157 +6,9 @@ import { SectionHeading } from "@/components/home/section-heading";
 import { ProductGrid } from "@/components/catalog/product-grid";
 
 import { getWebsiteAppearance } from "@/server/store/appearance";
-
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/server/auth/session";
-
-import type { DemoProduct } from "@/features/catalog/demo-data";
+import { getCatalogProducts } from "@/server/store/catalog-store";
 
 export const dynamic = "force-dynamic";
-
-/* =====================================================
-   GET CATALOG PRODUCTS FROM SUPABASE
-   ===================================================== */
-
-async function getCatalogProducts(): Promise<DemoProduct[]> {
-  if (!isSupabaseConfigured()) {
-    console.error("Supabase belum dikonfigurasi.");
-    return [];
-  }
-
-  try {
-    const client = createSupabaseServiceClient();
-
-    const { data, error } = await client
-      .from("products")
-      .select(
-        `
-        id,
-        name,
-        slug,
-        sku,
-        price,
-        sale_price,
-        stock,
-        status,
-        description,
-        material,
-        availability,
-        is_featured,
-        is_new_arrival,
-        is_best_seller,
-        created_at,
-        product_images (
-          storage_path,
-          is_primary,
-          position
-        )
-      `
-      )
-      .eq("status", "ACTIVE")
-      .order("created_at", {
-        ascending: false,
-      });
-
-    if (error) {
-      console.error(
-        "Gagal mengambil produk dari Supabase:",
-        error
-      );
-      return [];
-    }
-
-    return (data ?? []).map((product) => {
-      const images =
-        (product.product_images ?? []) as Array<{
-          storage_path: string;
-          is_primary: boolean;
-          position: number;
-        }>;
-
-      const primaryImage =
-        images.find(
-          (image) => image.is_primary
-        ) ??
-        [...images].sort(
-          (a, b) =>
-            (a.position ?? 0) -
-            (b.position ?? 0)
-        )[0];
-
-      let imageUrl =
-        "/images/editorial-mocha.svg";
-
-      if (primaryImage?.storage_path) {
-        imageUrl =
-          client.storage
-            .from("product-images")
-            .getPublicUrl(
-              primaryImage.storage_path
-            )
-            .data.publicUrl;
-      }
-
-      return {
-        id: product.id,
-        slug: product.slug,
-        name: product.name,
-
-        category:
-          "The Essential Edit",
-
-        price: Number(
-          product.price ?? 0
-        ),
-
-        salePrice:
-          product.sale_price !== null &&
-          product.sale_price !== undefined
-            ? Number(
-                product.sale_price
-              )
-            : undefined,
-
-        image: imageUrl,
-        imageAlt: product.name,
-
-        description:
-          product.description ?? "",
-
-        material:
-          product.material ??
-          "Premium Satin Voile",
-
-        care: "Hand wash cold.",
-
-        stock: Number(
-          product.stock ?? 0
-        ),
-
-        availability: String(
-          product.availability ?? "regular"
-        ).toLowerCase(),
-
-        isNew: Boolean(
-          product.is_new_arrival
-        ),
-
-        isBestSeller: Boolean(
-          product.is_best_seller
-        ),
-
-        variants: [],
-        variantIds: {},
-      };
-    });
-  } catch (error) {
-    console.error(
-      "Catalog products error:",
-      error
-    );
-    return [];
-  }
-}
 
 /* =====================================================
    HOMEPAGE
@@ -268,7 +120,9 @@ export default async function HomePage() {
               href="/shop?edit=new"
             />
 
-            <ProductGrid products={newArrivalProducts} />
+            <ProductGrid
+              products={newArrivalProducts}
+            />
           </div>
         </section>
       )}
@@ -326,7 +180,9 @@ export default async function HomePage() {
         />
 
         {bestSellerProducts.length > 0 ? (
-          <ProductGrid products={bestSellerProducts} />
+          <ProductGrid
+            products={bestSellerProducts}
+          />
         ) : (
           <div className="py-20 text-center">
             <p className="text-sm tracking-[0.08em] text-looms-gray">
