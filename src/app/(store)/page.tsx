@@ -14,6 +14,10 @@ import type { DemoProduct } from "@/features/catalog/demo-data";
 
 export const dynamic = "force-dynamic";
 
+/* =====================================================
+   GET CATALOG PRODUCTS FROM SUPABASE
+   ===================================================== */
+
 async function getCatalogProducts(): Promise<DemoProduct[]> {
   // =====================================================
   // WEBSITE PUBLIC HANYA MENGAMBIL DATA DARI SUPABASE
@@ -41,6 +45,7 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
         status,
         description,
         material,
+        availability,
         is_featured,
         is_new_arrival,
         is_best_seller,
@@ -88,8 +93,16 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             (b.position ?? 0)
         )[0];
 
+      // =====================================================
+      // DEFAULT IMAGE
+      // =====================================================
+
       let imageUrl =
         "/images/editorial-mocha.svg";
+
+      // =====================================================
+      // SUPABASE STORAGE IMAGE
+      // =====================================================
 
       if (primaryImage?.storage_path) {
         imageUrl =
@@ -101,9 +114,15 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             .data.publicUrl;
       }
 
+      // =====================================================
+      // RETURN PRODUCT
+      // =====================================================
+
       return {
         id: product.id,
+
         slug: product.slug,
+
         name: product.name,
 
         category:
@@ -161,26 +180,58 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
   }
 }
 
+/* =====================================================
+   HOMEPAGE
+   ===================================================== */
+
 export default async function HomePage() {
+  // =====================================================
+  // WEBSITE APPEARANCE
+  // =====================================================
+
   const appearance =
     await getWebsiteAppearance();
 
   // =====================================================
-  // AMBIL PRODUK LANGSUNG DARI SUPABASE
-  // TIDAK MENGGUNAKAN demoProducts
+  // AMBIL SEMUA PRODUK AKTIF DARI SUPABASE
   // =====================================================
 
   const gridProducts =
     await getCatalogProducts();
 
+  // =====================================================
+  // NEW ARRIVALS
+  // HANYA PRODUCT DENGAN is_new_arrival = TRUE
+  // =====================================================
+
+  const newArrivalProducts =
+    gridProducts.filter(
+      (product) => product.isNew
+    );
+
+  // =====================================================
+  // BEST SELLERS
+  // HANYA PRODUCT DENGAN is_best_seller = TRUE
+  // =====================================================
+
+  const bestSellerProducts =
+    gridProducts.filter(
+      (product) => product.isBestSeller
+    );
+
   return (
     <main>
-      {/* ================================================= */}
-      {/* HERO SECTION */}
-      {/* ================================================= */}
+
+      {/* =================================================
+          HERO SECTION
+          ================================================= */}
 
       <section className="grid min-h-[calc(100svh-6.5rem)] bg-[#d3c4b6] lg:grid-cols-[1fr_1.2fr]">
+
+        {/* HERO TEXT */}
+
         <div className="order-2 flex flex-col justify-center px-6 py-16 lg:order-1 lg:px-[max(3rem,8vw)]">
+
           <p className="text-[10px] font-medium tracking-[0.18em] text-looms-gray">
             {appearance.heroEyebrow}
           </p>
@@ -194,6 +245,9 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-9 flex flex-wrap gap-4">
+
+            {/* SHOP COLLECTION */}
+
             <Link
               href="/shop"
               className="bg-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] text-looms-cream transition hover:bg-looms-teal/90"
@@ -201,20 +255,25 @@ export default async function HomePage() {
               SHOP COLLECTION
             </Link>
 
+            {/* NEW ARRIVALS */}
+
             <Link
               href="/shop?edit=new"
               className="border border-looms-teal px-6 py-4 text-xs font-medium tracking-[0.12em] transition hover:bg-looms-teal hover:text-looms-cream"
             >
               EXPLORE NEW ARRIVALS
             </Link>
+
           </div>
+
         </div>
 
-        {/* ================================================= */}
-        {/* HERO MEDIA */}
-        {/* ================================================= */}
+        {/* =================================================
+            HERO MEDIA
+            ================================================= */}
 
         <div className="relative order-1 min-h-[52svh] overflow-hidden lg:order-2 lg:min-h-0">
+
           <img
             src={
               appearance.heroImage ||
@@ -224,42 +283,83 @@ export default async function HomePage() {
             className="absolute inset-0 h-full w-full object-cover motion-safe:animate-[pulse_8s_ease-in-out_infinite]"
             loading="eager"
           />
+
         </div>
+
       </section>
 
-      {/* ================================================= */}
-      {/* THE ESSENTIAL EDIT */}
-      {/* ================================================= */}
+
+      {/* =================================================
+          THE ESSENTIAL EDIT
+          SEMUA PRODUK AKTIF
+          ================================================= */}
 
       <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+
         <SectionHeading
           eyebrow="THE ESSENTIAL EDIT"
           title="Considered essentials."
         />
 
         {gridProducts.length > 0 ? (
+
           <ProductGrid
             products={gridProducts}
           />
+
         ) : (
+
           <div className="py-20 text-center">
+
             <p className="text-sm tracking-[0.08em] text-looms-gray">
               BELUM ADA PRODUK AKTIF
             </p>
+
           </div>
+
         )}
+
       </section>
 
-      {/* ================================================= */}
-      {/* EDITORIAL BANNER */}
-      {/* ================================================= */}
+
+      {/* =================================================
+          NEW ARRIVALS
+          HANYA is_new_arrival = TRUE
+          ================================================= */}
+
+      {newArrivalProducts.length > 0 && (
+
+        <section className="bg-[#f4eee8]">
+
+          <div className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+
+            <SectionHeading
+              eyebrow="JUST IN"
+              title="New arrivals."
+              href="/shop?edit=new"
+            />
+
+            <ProductGrid
+              products={newArrivalProducts}
+            />
+
+          </div>
+
+        </section>
+
+      )}
+
+
+      {/* =================================================
+          EDITORIAL BANNER
+          ================================================= */}
 
       <section className="grid bg-looms-teal text-looms-cream lg:grid-cols-2">
-        {/* ================================================= */}
-        {/* EDITORIAL MEDIA */}
-        {/* ================================================= */}
+
+        {/* EDITORIAL IMAGE */}
 
         <div className="relative min-h-[28rem] overflow-hidden">
+
           <img
             src={
               appearance.editorialImage ||
@@ -269,10 +369,15 @@ export default async function HomePage() {
             className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
           />
+
         </div>
 
+        {/* EDITORIAL TEXT */}
+
         <div className="flex items-center px-6 py-20 lg:px-[max(3rem,8vw)]">
+
           <div>
+
             <p className="text-[10px] font-medium tracking-[0.16em] text-looms-cream/65">
               {appearance.editorialEyebrow}
             </p>
@@ -291,40 +396,48 @@ export default async function HomePage() {
             >
               DISCOVER THE EDIT
             </Link>
+
           </div>
+
         </div>
+
       </section>
 
-      {/* ================================================= */}
-      {/* BEST SELLERS */}
-      {/* ================================================= */}
 
-      <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
-        <SectionHeading
-          eyebrow="WORN &amp; LOVED"
-          title="Best sellers."
-          href="/shop?edit=best"
-        />
+      {/* =================================================
+          BEST SELLERS
+          HANYA is_best_seller = TRUE
+          ================================================= */}
 
-        {gridProducts.length > 0 ? (
-          <ProductGrid
-            products={gridProducts}
+      {bestSellerProducts.length > 0 && (
+
+        <section className="mx-auto max-w-[1440px] px-5 py-20 lg:px-10 lg:py-28">
+
+          <SectionHeading
+            eyebrow="WORN &amp; LOVED"
+            title="Best sellers."
+            href="/shop?edit=best"
           />
-        ) : (
-          <div className="py-20 text-center">
-            <p className="text-sm tracking-[0.08em] text-looms-gray">
-              BELUM ADA PRODUK
-            </p>
-          </div>
-        )}
-      </section>
 
-      {/* ================================================= */}
-      {/* STORY BANNER */}
-      {/* ================================================= */}
+          <ProductGrid
+            products={bestSellerProducts}
+          />
+
+        </section>
+
+      )}
+
+
+      {/* =================================================
+          STORY BANNER
+          ================================================= */}
 
       <section className="grid bg-[#b98f75] lg:grid-cols-[1.15fr_.85fr]">
+
+        {/* STORY IMAGE */}
+
         <div className="relative min-h-[26rem] overflow-hidden">
+
           <Image
             src={
               appearance.storyImage ||
@@ -335,10 +448,15 @@ export default async function HomePage() {
             sizes="(max-width: 1024px) 100vw, 60vw"
             className="object-cover"
           />
+
         </div>
 
+        {/* STORY TEXT */}
+
         <div className="flex items-center px-6 py-16 lg:px-[max(3rem,8vw)]">
+
           <div>
+
             <p className="text-[10px] font-medium tracking-[0.16em] text-looms-teal/70">
               THE LOOMS WAY
             </p>
@@ -357,11 +475,20 @@ export default async function HomePage() {
             >
               OUR STORY
             </Link>
+
           </div>
+
         </div>
+
       </section>
 
+
+      {/* =================================================
+          NEWSLETTER
+          ================================================= */}
+
       <Newsletter />
+
     </main>
   );
 }
