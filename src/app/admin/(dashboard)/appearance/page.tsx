@@ -22,68 +22,44 @@ interface AppearanceState {
   whatsappNumber: string;
 }
 
-type ImageField =
-  | "heroImage"
-  | "editorialImage";
+type ImageField = "heroImage" | "editorialImage";
 
 const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
 
-const ALLOWED_IMAGE_TYPES = [
+const ALLOWED_MIME_TYPES = [
   "image/jpeg",
-  "image/jpg",
   "image/gif",
 ];
 
-const ALLOWED_IMAGE_EXTENSIONS = [
+const ALLOWED_EXTENSIONS = [
   ".jpg",
   ".jpeg",
   ".gif",
 ];
 
-function isAllowedImageFile(file: File): boolean {
-  const fileName = file.name.toLowerCase();
-
-  const hasAllowedExtension =
-    ALLOWED_IMAGE_EXTENSIONS.some((extension) =>
-      fileName.endsWith(extension)
-    );
-
-  const hasAllowedMimeType =
-    ALLOWED_IMAGE_TYPES.includes(file.type);
-
-  return (
-    hasAllowedExtension &&
-    hasAllowedMimeType
-  );
-}
-
 export default function AdminAppearancePage() {
-  const [form, setForm] =
-    useState<AppearanceState>({
-      announcementText: "",
+  const [form, setForm] = useState<AppearanceState>({
+    announcementText: "",
 
-      heroEyebrow: "",
-      heroTitle: "",
-      heroDescription: "",
-      heroImage: "",
+    heroEyebrow: "",
+    heroTitle: "",
+    heroDescription: "",
+    heroImage: "",
 
-      editorialEyebrow: "",
-      editorialTitle: "",
-      editorialDescription: "",
-      editorialImage: "",
+    editorialEyebrow: "",
+    editorialTitle: "",
+    editorialDescription: "",
+    editorialImage: "",
 
-      storyTitle: "",
-      storyDescription: "",
-      storyImage: "",
+    storyTitle: "",
+    storyDescription: "",
+    storyImage: "",
 
-      whatsappNumber: "",
-    });
+    whatsappNumber: "",
+  });
 
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  const [isSaving, setIsSaving] =
-    useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const [uploadingField, setUploadingField] =
     useState<ImageField | null>(null);
@@ -203,6 +179,71 @@ export default function AdminAppearancePage() {
     }
   }
 
+  /*
+   * =========================================================
+   * VALIDASI FILE MEDIA
+   * =========================================================
+   *
+   * HANYA:
+   * JPG
+   * JPEG
+   * GIF
+   *
+   * File lain seperti:
+   * PNG
+   * WEBP
+   * SVG
+   * PDF
+   * DOC
+   * DOCX
+   * ZIP
+   * MP4
+   * dan lain-lain
+   *
+   * akan ditolak.
+   */
+
+  function validateAppearanceMedia(
+    file: File
+  ): string | null {
+    if (file.size <= 0) {
+      return "File tidak boleh kosong.";
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      return "Ukuran media maksimal 8 MB.";
+    }
+
+    if (
+      !ALLOWED_MIME_TYPES.includes(
+        file.type
+      )
+    ) {
+      return (
+        "Format media tidak didukung. " +
+        "Hanya JPG/JPEG dan GIF yang diperbolehkan."
+      );
+    }
+
+    const fileName =
+      file.name.toLowerCase();
+
+    const hasAllowedExtension =
+      ALLOWED_EXTENSIONS.some(
+        (extension) =>
+          fileName.endsWith(extension)
+      );
+
+    if (!hasAllowedExtension) {
+      return (
+        "Format file tidak valid. " +
+        "Gunakan file JPG/JPEG atau GIF."
+      );
+    }
+
+    return null;
+  }
+
   async function handleImageUpload(
     field: ImageField,
     file: File
@@ -211,39 +252,14 @@ export default function AdminAppearancePage() {
     setSuccessMsg(null);
 
     /*
-     * =====================================================
-     * VALIDASI FILE
-     * =====================================================
+     * Validasi file sebelum dikirim
+     * ke server.
      */
+    const validationError =
+      validateAppearanceMedia(file);
 
-    if (!isAllowedImageFile(file)) {
-      setError(
-        "File ditolak. Hanya JPG, JPEG, dan GIF yang diperbolehkan."
-      );
-      return;
-    }
-
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError(
-        "Ukuran file maksimal 8 MB."
-      );
-      return;
-    }
-
-    /*
-     * =====================================================
-     * CEK MIME TYPE
-     * =====================================================
-     */
-
-    if (
-      file.type !== "image/jpeg" &&
-      file.type !== "image/jpg" &&
-      file.type !== "image/gif"
-    ) {
-      setError(
-        "Format file tidak valid. Hanya JPG, JPEG, dan GIF yang diperbolehkan."
-      );
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -276,7 +292,7 @@ export default function AdminAppearancePage() {
       if (!res.ok || !data.success) {
         throw new Error(
           data.error ||
-            "Gagal mengupload gambar"
+            "Gagal mengupload media"
         );
       }
 
@@ -284,14 +300,8 @@ export default function AdminAppearancePage() {
         setForm(data.appearance);
       }
 
-      const fileExtension =
-        file.name
-          .toLowerCase()
-          .split(".")
-          .pop();
-
       const mediaType =
-        fileExtension === "gif"
+        file.type === "image/gif"
           ? "GIF"
           : "JPG";
 
@@ -308,7 +318,7 @@ export default function AdminAppearancePage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Gagal mengupload gambar"
+          : "Gagal mengupload media"
       );
     } finally {
       setUploadingField(null);
@@ -325,7 +335,7 @@ export default function AdminAppearancePage() {
 
     const confirmed =
       window.confirm(
-        `Hapus ${label}?\n\nGambar akan dikembalikan ke gambar bawaan LOOMS.`
+        `Hapus ${label}?\n\nMedia akan dikembalikan ke gambar bawaan LOOMS.`
       );
 
     if (!confirmed) {
@@ -356,7 +366,7 @@ export default function AdminAppearancePage() {
       if (!res.ok || !data.success) {
         throw new Error(
           data.error ||
-            "Gagal menghapus gambar"
+            "Gagal menghapus media"
         );
       }
 
@@ -375,7 +385,7 @@ export default function AdminAppearancePage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Gagal menghapus gambar"
+          : "Gagal menghapus media"
       );
     } finally {
       setDeletingField(null);
@@ -386,7 +396,7 @@ export default function AdminAppearancePage() {
     field: ImageField,
     label: string
   ) {
-    const image =
+    const media =
       form[field];
 
     const isUploading =
@@ -408,19 +418,22 @@ export default function AdminAppearancePage() {
 
         <div className="grid gap-4 lg:grid-cols-[1fr_240px]">
 
-          {/* ========================================= */}
+          {/* ================================================= */}
           {/* UPLOAD AREA */}
-          {/* ========================================= */}
+          {/* ================================================= */}
 
-          <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-5">
+          <div className="rounded-xl border border-dashed border-looms-teal/40 bg-looms-teal/5 p-5">
 
             <input
               id={inputId}
               type="file"
 
               /*
-               * Hanya tampilkan JPG/JPEG/GIF
-               * di file picker.
+               * Browser hanya menampilkan
+               * JPG/JPEG/GIF sebagai pilihan.
+               *
+               * Server tetap melakukan
+               * validasi ulang.
                */
               accept=".jpg,.jpeg,.gif,image/jpeg,image/gif"
 
@@ -442,10 +455,6 @@ export default function AdminAppearancePage() {
                   );
                 }
 
-                /*
-                 * Reset input agar file yang sama
-                 * bisa dipilih kembali.
-                 */
                 event.currentTarget.value =
                   "";
               }}
@@ -453,7 +462,7 @@ export default function AdminAppearancePage() {
 
             <div className="flex flex-wrap gap-2">
 
-              {/* PILIH FILE */}
+              {/* PILIH MEDIA */}
 
               <label
                 htmlFor={inputId}
@@ -466,7 +475,7 @@ export default function AdminAppearancePage() {
               >
                 {isUploading
                   ? "Mengupload..."
-                  : "Pilih JPG / GIF"}
+                  : "Pilih Media"}
               </label>
 
               {/* HAPUS */}
@@ -490,88 +499,100 @@ export default function AdminAppearancePage() {
               </button>
             </div>
 
-            {/* ===================================== */}
-            {/* FORMAT INFO */}
-            {/* ===================================== */}
+            {/* ================================================= */}
+            {/* INFO FORMAT */}
+            {/* ================================================= */}
 
-            <div className="mt-4 space-y-1">
+            <div className="mt-4 rounded-lg border border-looms-teal/20 bg-white p-4">
 
-              <p className="text-xs font-medium text-gray-700">
+              <p className="text-xs font-bold text-looms-teal">
+                Masukan media dengan format
+                JPG/GIF
+              </p>
+
+              <p className="mt-1 text-[11px] leading-5 text-gray-500">
                 Format yang didukung:
-                <span className="ml-1 font-bold">
-                  JPG / JPEG / GIF
-                </span>
+                JPG / JPEG / GIF
               </p>
 
               <p className="text-[11px] leading-5 text-gray-500">
                 Maksimal ukuran 8 MB.
-                File akan otomatis
-                disimpan ke Supabase
-                Storage.
               </p>
 
-              <p className="text-[11px] leading-5 text-gray-500">
-                File selain JPG, JPEG,
-                dan GIF akan ditolak
-                untuk mencegah error
-                atau bug pada website.
+              <p className="mt-2 text-[11px] leading-5 text-gray-500">
+                GIF akan tetap menjadi GIF
+                sehingga animasinya dapat
+                bergerak dan mengulang
+                otomatis di website.
               </p>
 
-              <p className="text-[11px] leading-5 text-gray-500">
-                GIF akan tetap bergerak
-                dan mengulang otomatis
-                saat ditampilkan di
-                website publik.
+              <p className="mt-2 text-[11px] leading-5 text-red-500">
+                PNG, WebP, SVG, PDF, Word,
+                ZIP, MP4, dan file lainnya
+                tidak diperbolehkan.
               </p>
             </div>
 
-            {/* ===================================== */}
-            {/* ACTIVE IMAGE URL */}
-            {/* ===================================== */}
+            {/* ================================================= */}
+            {/* ACTIVE MEDIA URL */}
+            {/* ================================================= */}
 
-            {image && (
+            {media && (
               <div className="mt-4 rounded-lg bg-white px-3 py-2">
 
-                <p className="text-[10px] text-gray-400">
+                <p className="break-all text-[10px] text-gray-400">
                   Media aktif:
                 </p>
 
                 <p className="mt-1 break-all text-[10px] text-gray-600">
-                  {image}
+                  {media}
                 </p>
-
               </div>
             )}
           </div>
 
-          {/* ========================================= */}
+          {/* ================================================= */}
           {/* PREVIEW */}
-          {/* ========================================= */}
+          {/* ================================================= */}
 
           <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
 
-            {image ? (
-              /*
-               * PENTING:
-               *
-               * Kita menggunakan <img>, bukan background-image.
-               * Dengan begitu GIF tetap dianimasikan.
-               */
-              <img
-                src={image}
-                alt={label}
-                className="h-56 w-full object-cover"
-              />
+            {media ? (
+              <div className="relative h-56 w-full">
+
+                {/*
+                 * Gunakan <img>, bukan Next Image,
+                 * supaya GIF tetap dianimasikan.
+                 */}
+
+                <img
+                  src={media}
+                  alt={label}
+                  className="h-56 w-full object-cover"
+                />
+
+                {/*
+                 * Badge kecil untuk memberi tahu
+                 * admin kalau media tersebut GIF.
+                 */}
+
+                {media
+                  .toLowerCase()
+                  .split("?")[0]
+                  .endsWith(".gif") && (
+                  <div className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white">
+                    GIF • Animated
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex h-56 items-center justify-center px-5 text-center text-xs text-gray-400">
                 Belum ada media.
                 <br />
-                Upload JPG / GIF
-                untuk menampilkan
-                media.
+                Upload JPG atau GIF
+                untuk menampilkan media.
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -588,7 +609,6 @@ export default function AdminAppearancePage() {
           <span>
             Memuat pengaturan tampilan...
           </span>
-
         </div>
       </div>
     );
@@ -597,12 +617,11 @@ export default function AdminAppearancePage() {
   return (
     <div className="max-w-4xl space-y-6">
 
-      {/* ============================================= */}
+      {/* ================================================= */}
       {/* HEADER */}
-      {/* ============================================= */}
+      {/* ================================================= */}
 
       <div>
-
         <p className="text-xs font-semibold uppercase tracking-widest text-looms-teal/70">
           Storefront Customization
         </p>
@@ -613,38 +632,33 @@ export default function AdminAppearancePage() {
 
         <p className="mt-1 text-xs text-gray-500">
           Sesuaikan teks hero, banner
-          gambar, pengumuman atas,
+          media, pengumuman atas,
           dan konten beranda toko
           LOOMS.
         </p>
-
       </div>
 
-      {/* ============================================= */}
+      {/* ================================================= */}
       {/* SUCCESS */}
-      {/* ============================================= */}
+      {/* ================================================= */}
 
       {successMsg && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-medium text-emerald-800">
-
           <span>✓</span>
 
           <span>
             {successMsg}
           </span>
-
         </div>
       )}
 
-      {/* ============================================= */}
+      {/* ================================================= */}
       {/* ERROR */}
-      {/* ============================================= */}
+      {/* ================================================= */}
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-xs font-medium text-red-700">
-
           {error}
-
         </div>
       )}
 
@@ -654,7 +668,7 @@ export default function AdminAppearancePage() {
       >
 
         {/* ================================================= */}
-        {/* 1. ANNOUNCEMENT */}
+        {/* ANNOUNCEMENT */}
         {/* ================================================= */}
 
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -665,7 +679,6 @@ export default function AdminAppearancePage() {
           </h2>
 
           <div>
-
             <label className="mb-1 block font-semibold text-gray-700">
               Teks Pengumuman Promo /
               Gratis Ongkir
@@ -684,12 +697,11 @@ export default function AdminAppearancePage() {
               }
               className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
             />
-
           </div>
         </div>
 
         {/* ================================================= */}
-        {/* 2. HERO */}
+        {/* HERO */}
         {/* ================================================= */}
 
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -704,7 +716,6 @@ export default function AdminAppearancePage() {
             {/* EYEBROW */}
 
             <div>
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Label Sub-Header
                 (Eyebrow)
@@ -723,13 +734,11 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
             {/* TITLE */}
 
             <div>
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Judul Hero Banner
               </label>
@@ -747,13 +756,11 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
             {/* DESCRIPTION */}
 
             <div className="md:col-span-2">
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Deskripsi Hero
               </label>
@@ -771,21 +778,19 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
-            {/* HERO IMAGE */}
+            {/* HERO MEDIA */}
 
             {renderImageUpload(
               "heroImage",
-              "Foto / Gambar Hero Banner"
+              "Foto / Media Hero Banner"
             )}
-
           </div>
         </div>
 
         {/* ================================================= */}
-        {/* 3. EDITORIAL */}
+        {/* EDITORIAL */}
         {/* ================================================= */}
 
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -801,7 +806,6 @@ export default function AdminAppearancePage() {
             {/* EYEBROW */}
 
             <div>
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Label Editorial
               </label>
@@ -819,13 +823,11 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
             {/* TITLE */}
 
             <div>
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Judul Editorial
               </label>
@@ -843,13 +845,11 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
             {/* DESCRIPTION */}
 
             <div className="md:col-span-2">
-
               <label className="mb-1 block font-semibold text-gray-700">
                 Deskripsi Editorial
               </label>
@@ -867,21 +867,19 @@ export default function AdminAppearancePage() {
                 }
                 className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs focus:border-looms-teal focus:bg-white focus:outline-none"
               />
-
             </div>
 
-            {/* EDITORIAL IMAGE */}
+            {/* EDITORIAL MEDIA */}
 
             {renderImageUpload(
               "editorialImage",
-              "Gambar Banner Editorial"
+              "Media Banner Editorial"
             )}
-
           </div>
         </div>
 
         {/* ================================================= */}
-        {/* 4. WHATSAPP */}
+        {/* WHATSAPP */}
         {/* ================================================= */}
 
         <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -892,7 +890,6 @@ export default function AdminAppearancePage() {
           </h2>
 
           <div>
-
             <label className="mb-1 block font-semibold text-gray-700">
               Nomor WhatsApp Penerima
               Order (Gunakan awalan 62)
@@ -919,7 +916,6 @@ export default function AdminAppearancePage() {
               &quot;Pesan via WhatsApp&quot;
               pada saat checkout.
             </p>
-
           </div>
         </div>
 
@@ -940,7 +936,6 @@ export default function AdminAppearancePage() {
           </button>
 
         </div>
-
       </form>
     </div>
   );
