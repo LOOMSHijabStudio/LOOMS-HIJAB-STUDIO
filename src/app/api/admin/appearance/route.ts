@@ -28,36 +28,23 @@ const IMAGE_CONFIG = {
 
 type ImageField = keyof typeof IMAGE_CONFIG;
 
-const ALLOWED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/gif",
-] as const;
-
-const ALLOWED_IMAGE_EXTENSIONS = [
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-  "gif",
-] as const;
-
-const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
-
 const appearanceKeys: Array<keyof WebsiteAppearance> = [
   "announcementText",
+
   "heroEyebrow",
   "heroTitle",
   "heroDescription",
   "heroImage",
+
   "editorialEyebrow",
   "editorialTitle",
   "editorialDescription",
   "editorialImage",
+
   "storyTitle",
   "storyDescription",
   "storyImage",
+
   "whatsappNumber",
 ];
 
@@ -65,9 +52,10 @@ function isImageField(value: string): value is ImageField {
   return value in IMAGE_CONFIG;
 }
 
-function getStoragePathFromUrl(
-  url: string
-): string | null {
+/**
+ * Ambil path file dari public URL Supabase Storage.
+ */
+function getStoragePathFromUrl(url: string): string | null {
   const marker =
     "/storage/v1/object/public/site-assets/";
 
@@ -82,6 +70,9 @@ function getStoragePathFromUrl(
   );
 }
 
+/**
+ * Sanitasi data text/settings.
+ */
 function sanitizeAppearanceBody(
   body: unknown
 ): Partial<WebsiteAppearance> {
@@ -93,8 +84,7 @@ function sanitizeAppearanceBody(
     return {};
   }
 
-  const input =
-    body as Record<string, unknown>;
+  const input = body as Record<string, unknown>;
 
   const result: Partial<WebsiteAppearance> = {};
 
@@ -109,61 +99,52 @@ function sanitizeAppearanceBody(
   return result;
 }
 
-function getExtension(
+/**
+ * Hanya JPG/JPEG/GIF.
+ *
+ * PNG, WebP, SVG, PDF, DOC, DOCX, ZIP, MP4,
+ * dan file lainnya akan ditolak.
+ */
+function isAllowedAppearanceImage(file: File): boolean {
+  return (
+    file.type === "image/jpeg" ||
+    file.type === "image/gif"
+  );
+}
+
+/**
+ * Periksa extension juga.
+ *
+ * Ini penting supaya file bukan cuma mengaku
+ * sebagai GIF/JPG melalui MIME type.
+ */
+function hasAllowedImageExtension(
   fileName: string
-): string | null {
-  const parts = fileName
-    .toLowerCase()
-    .split(".");
+): boolean {
+  const lowerName = fileName.toLowerCase();
 
-  if (parts.length < 2) {
-    return null;
-  }
-
-  const extension =
-    parts[parts.length - 1];
-
-  if (
-    !ALLOWED_IMAGE_EXTENSIONS.includes(
-      extension as (typeof ALLOWED_IMAGE_EXTENSIONS)[number]
-    )
-  ) {
-    return null;
-  }
-
-  return extension;
+  return (
+    lowerName.endsWith(".jpg") ||
+    lowerName.endsWith(".jpeg") ||
+    lowerName.endsWith(".gif")
+  );
 }
 
-function getMimeTypeFromExtension(
-  extension: string
-): string {
-  switch (extension) {
-    case "jpg":
-    case "jpeg":
-      return "image/jpeg";
-
-    case "png":
-      return "image/png";
-
-    case "webp":
-      return "image/webp";
-
-    case "gif":
-      return "image/gif";
-
-    default:
-      return "";
-  }
-}
-
-async function validateImageSignature(
+/**
+ * Periksa magic bytes file.
+ *
+ * JPG:
+ * FF D8 FF
+ *
+ * GIF:
+ * GIF87a / GIF89a
+ */
+async function hasValidImageSignature(
   file: File
 ): Promise<boolean> {
-  const buffer =
-    await file.arrayBuffer();
+  const buffer = await file.arrayBuffer();
 
-  const bytes =
-    new Uint8Array(buffer);
+  const bytes = new Uint8Array(buffer);
 
   // JPEG
   const isJpeg =
@@ -172,49 +153,46 @@ async function validateImageSignature(
     bytes[1] === 0xd8 &&
     bytes[2] === 0xff;
 
-  // PNG
-  const isPng =
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a;
-
-  // WEBP
-  const isWebp =
-    bytes.length >= 12 &&
-    bytes[0] === 0x52 &&
-    bytes[1] === 0x49 &&
-    bytes[2] === 0x46 &&
-    bytes[3] === 0x46 &&
-    bytes[8] === 0x57 &&
-    bytes[9] === 0x45 &&
-    bytes[10] === 0x42 &&
-    bytes[11] === 0x50;
-
-  // GIF87a / GIF89a
-  const isGif =
+  // GIF87a
+  const isGif87a =
     bytes.length >= 6 &&
     bytes[0] === 0x47 &&
     bytes[1] === 0x49 &&
     bytes[2] === 0x46 &&
     bytes[3] === 0x38 &&
-    (bytes[4] === 0x37 ||
-      bytes[4] === 0x39) &&
+    bytes[4] === 0x37 &&
     bytes[5] === 0x61;
 
-  return (
-    isJpeg ||
-    isPng ||
-    isWebp ||
-    isGif
-  );
+  // GIF89a
+  const isGif89a =
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    bytes[4] === 0x39 &&
+    bytes[5] === 0x61;
+
+  return isJpeg || isGif87a || isGif89a;
 }
 
+/**
+ * Tentukan extension asli file.
+ */
+function getImageExtension(
+  file: File
+): "jpg" | "gif" {
+  if (file.type === "image/gif") {
+    return "gif";
+  }
+
+  return "jpg";
+}
+
+/**
+ * GET
+ * Ambil appearance website.
+ */
 export async function GET() {
   try {
     const verification =
@@ -248,6 +226,15 @@ export async function GET() {
   }
 }
 
+/**
+ * POST
+ *
+ * Bisa digunakan untuk:
+ *
+ * 1. Upload JPG
+ * 2. Upload GIF
+ * 3. Simpan text/settings
+ */
 export async function POST(
   request: NextRequest
 ) {
@@ -260,13 +247,11 @@ export async function POST(
     }
 
     const contentType =
-      request.headers.get(
-        "content-type"
-      ) ?? "";
+      request.headers.get("content-type") ?? "";
 
     /*
      * =========================================================
-     * UPLOAD IMAGE / GIF
+     * UPLOAD IMAGE
      * =========================================================
      */
 
@@ -284,6 +269,9 @@ export async function POST(
       const file =
         formData.get("file");
 
+      /*
+       * Pastikan field valid.
+       */
       if (
         typeof fieldValue !== "string" ||
         !isImageField(fieldValue)
@@ -298,38 +286,30 @@ export async function POST(
         );
       }
 
+      /*
+       * Pastikan benar-benar File.
+       */
       if (!(file instanceof File)) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "File media tidak ditemukan",
+              "File gambar tidak ditemukan",
           },
           { status: 400 }
         );
       }
 
       /*
-       * =======================================================
-       * SIZE
-       * =======================================================
+       * =========================================================
+       * FILE SIZE
+       * =========================================================
        */
 
-      if (file.size <= 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "File kosong atau tidak valid",
-          },
-          { status: 400 }
-        );
-      }
+      const maxSize =
+        8 * 1024 * 1024;
 
-      if (
-        file.size >
-        MAX_IMAGE_SIZE
-      ) {
+      if (file.size > maxSize) {
         return NextResponse.json(
           {
             success: false,
@@ -341,92 +321,152 @@ export async function POST(
       }
 
       /*
-       * =======================================================
-       * EXTENSION
-       * =======================================================
+       * File kosong tidak boleh.
        */
-
-      const extension =
-        getExtension(file.name);
-
-      if (!extension) {
+      if (file.size <= 0) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "Format file tidak diperbolehkan. Gunakan JPG, JPEG, PNG, WEBP, atau GIF.",
+              "File tidak boleh kosong",
           },
           { status: 400 }
         );
       }
 
       /*
-       * =======================================================
+       * =========================================================
        * MIME TYPE
-       * =======================================================
+       * =========================================================
+       *
+       * HANYA:
+       *
+       * image/jpeg
+       * image/gif
+       *
+       * Semua file lain ditolak.
        */
 
-      const expectedMime =
-        getMimeTypeFromExtension(
-          extension
-        );
-
-      if (!expectedMime) {
+      if (!isAllowedAppearanceImage(file)) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "Format media tidak valid.",
+              "Format tidak didukung. Hanya JPG/JPEG dan GIF yang diperbolehkan.",
           },
           { status: 400 }
         );
       }
 
       /*
-       * Browser MIME bisa kosong / tidak akurat,
-       * jadi kita cek jika tersedia.
+       * =========================================================
+       * EXTENSION
+       * =========================================================
        */
 
       if (
-        file.type &&
-        file.type !== expectedMime
+        !hasAllowedImageExtension(
+          file.name
+        )
       ) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "Tipe file tidak sesuai dengan ekstensi file.",
+              "Format file tidak valid. Gunakan file JPG/JPEG atau GIF.",
           },
           { status: 400 }
         );
       }
 
       /*
-       * =======================================================
-       * MAGIC BYTES / FILE SIGNATURE
-       * =======================================================
+       * =========================================================
+       * MAGIC BYTES
+       * =========================================================
+       *
+       * Mencegah file palsu yang hanya mengganti
+       * nama extension menjadi .jpg atau .gif.
        */
 
       const validSignature =
-        await validateImageSignature(
-          file
-        );
+        await hasValidImageSignature(file);
 
       if (!validSignature) {
         return NextResponse.json(
           {
             success: false,
             error:
-              "File bukan gambar yang valid atau file telah disamarkan.",
+              "File media tidak valid atau isi file tidak sesuai dengan format JPG/GIF.",
           },
           { status: 400 }
         );
       }
 
       /*
-       * =======================================================
-       * UPLOAD SUPABASE
-       * =======================================================
+       * Pastikan signature sesuai dengan MIME type.
+       */
+      const buffer =
+        await file.arrayBuffer();
+
+      const bytes =
+        new Uint8Array(buffer);
+
+      const isActuallyJpeg =
+        bytes.length >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff;
+
+      const isActuallyGif =
+        bytes.length >= 6 &&
+        bytes[0] === 0x47 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        (
+          (
+            bytes[3] === 0x38 &&
+            bytes[4] === 0x37 &&
+            bytes[5] === 0x61
+          ) ||
+          (
+            bytes[3] === 0x38 &&
+            bytes[4] === 0x39 &&
+            bytes[5] === 0x61
+          )
+        );
+
+      if (
+        file.type === "image/jpeg" &&
+        !isActuallyJpeg
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Isi file bukan JPEG yang valid.",
+          },
+          { status: 400 }
+        );
+      }
+
+      if (
+        file.type === "image/gif" &&
+        !isActuallyGif
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Isi file bukan GIF yang valid.",
+          },
+          { status: 400 }
+        );
+      }
+
+      /*
+       * =========================================================
+       * SUPABASE
+       * =========================================================
        */
 
       const client =
@@ -439,15 +479,14 @@ export async function POST(
         current[fieldValue];
 
       /*
-       * PENTING:
-       * Ekstensi asli dipertahankan.
+       * Pertahankan extension asli.
        *
-       * Kalau upload GIF:
-       * contoh -> abc123.gif
-       *
-       * Jadi Supabase tidak mengubah GIF
-       * menjadi JPG.
+       * JPG  -> .jpg
+       * GIF  -> .gif
        */
+
+      const extension =
+        getImageExtension(file);
 
       const randomName =
         `${crypto.randomUUID()}.${extension}`;
@@ -455,31 +494,40 @@ export async function POST(
       const storagePath =
         `${IMAGE_CONFIG[fieldValue].folder}/${randomName}`;
 
-      const fileBuffer =
-        await file.arrayBuffer();
+      /*
+       * =========================================================
+       * UPLOAD
+       * =========================================================
+       *
+       * PENTING:
+       * Jangan convert GIF menjadi JPG.
+       *
+       * Dengan cara ini file GIF tetap GIF
+       * sehingga animasinya tetap berjalan
+       * ketika ditampilkan di website.
+       */
 
       const {
         error: uploadError,
-      } =
-        await client.storage
-          .from("site-assets")
-          .upload(
-            storagePath,
-            fileBuffer,
-            {
-              contentType:
-                expectedMime,
+      } = await client.storage
+        .from("site-assets")
+        .upload(
+          storagePath,
+          buffer,
+          {
+            contentType:
+              file.type,
 
-              cacheControl:
-                "3600",
+            cacheControl:
+              "3600",
 
-              upsert: false,
-            }
-          );
+            upsert: false,
+          }
+        );
 
       if (uploadError) {
         console.error(
-          "Appearance media upload error:",
+          "Appearance image upload error:",
           uploadError
         );
 
@@ -487,38 +535,38 @@ export async function POST(
       }
 
       /*
-       * =======================================================
+       * =========================================================
        * PUBLIC URL
-       * =======================================================
+       * =========================================================
        */
 
       const {
         data: publicUrlData,
-      } =
-        client.storage
-          .from("site-assets")
-          .getPublicUrl(
-            storagePath
-          );
+      } = client.storage
+        .from("site-assets")
+        .getPublicUrl(
+          storagePath
+        );
 
       const imageUrl =
         publicUrlData.publicUrl;
 
       /*
-       * =======================================================
-       * UPDATE DATABASE
-       * =======================================================
+       * =========================================================
+       * SIMPAN URL KE DATABASE
+       * =========================================================
        */
 
       const updated =
         await updateWebsiteAppearance({
-          [fieldValue]: imageUrl,
+          [fieldValue]:
+            imageUrl,
         });
 
       /*
-       * =======================================================
-       * HAPUS FILE LAMA
-       * =======================================================
+       * =========================================================
+       * HAPUS GAMBAR LAMA
+       * =========================================================
        */
 
       if (
@@ -544,7 +592,7 @@ export async function POST(
 
           if (removeError) {
             console.error(
-              "Failed removing old appearance media:",
+              "Failed removing old appearance image:",
               removeError
             );
           }
@@ -552,9 +600,9 @@ export async function POST(
       }
 
       /*
-       * =======================================================
+       * =========================================================
        * AUDIT LOG
-       * =======================================================
+       * =========================================================
        */
 
       await logAuditEvent({
@@ -571,12 +619,18 @@ export async function POST(
           field:
             fieldValue,
 
-          fileType:
-            expectedMime,
+          mimeType:
+            file.type,
 
           extension,
         },
       });
+
+      /*
+       * =========================================================
+       * RESPONSE
+       * =========================================================
+       */
 
       return NextResponse.json({
         success: true,
@@ -588,9 +642,6 @@ export async function POST(
           updated,
 
         imageUrl,
-
-        mimeType:
-          expectedMime,
       });
     }
 
@@ -622,7 +673,9 @@ export async function POST(
 
       metadata: {
         changes:
-          Object.keys(updates),
+          Object.keys(
+            updates
+          ),
       },
     });
 
@@ -652,6 +705,12 @@ export async function POST(
   }
 }
 
+/**
+ * DELETE
+ *
+ * Menghapus gambar Hero/Editorial
+ * dari Supabase Storage.
+ */
 export async function DELETE(
   request: NextRequest
 ) {
@@ -693,9 +752,8 @@ export async function DELETE(
       createSupabaseServiceClient();
 
     /*
-     * Hapus file dari Supabase Storage
+     * Hapus file dari Supabase Storage.
      */
-
     if (
       imageUrl &&
       imageUrl.includes(
@@ -727,9 +785,8 @@ export async function DELETE(
     }
 
     /*
-     * Fallback bawaan LOOMS
+     * Kembalikan ke gambar default.
      */
-
     const fallback =
       field === "heroImage"
         ? "/images/editorial-sand.svg"
@@ -737,7 +794,8 @@ export async function DELETE(
 
     const updated =
       await updateWebsiteAppearance({
-        [field]: fallback,
+        [field]:
+          fallback,
       });
 
     await logAuditEvent({
