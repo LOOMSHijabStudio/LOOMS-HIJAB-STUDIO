@@ -27,6 +27,15 @@ interface ProductRecord {
   placements?: string[];
 }
 
+interface ProductImageRecord {
+  id: string;
+  product_id: string;
+  storage_path: string;
+  public_url: string;
+  position: number;
+  is_primary: boolean;
+}
+
 interface ProductImageUpload {
   file: File;
   preview: string;
@@ -74,6 +83,19 @@ export default function AdminProductsPage() {
 
   const [editImagePreview, setEditImagePreview] =
     useState("");
+
+  /* =====================================================
+     EXISTING PRODUCT IMAGES
+  ===================================================== */
+
+  const [existingImages, setExistingImages] =
+    useState<ProductImageRecord[]>([]);
+
+  const [isLoadingImages, setIsLoadingImages] =
+    useState(false);
+
+  const [deletingImageId, setDeletingImageId] =
+    useState<string | null>(null);
 
   /* =====================================================
      MULTIPLE PRODUCT IMAGES
@@ -127,6 +149,48 @@ export default function AdminProductsPage() {
   }, [loadProducts]);
 
   /* =====================================================
+     LOAD EXISTING IMAGES
+  ===================================================== */
+
+  async function loadExistingImages(
+    productId: string
+  ) {
+    try {
+      setIsLoadingImages(true);
+
+      const response = await fetch(
+        `/api/admin/products/${productId}/images`,
+        {
+          cache: "no-store",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error ||
+            "Gagal memuat foto produk"
+        );
+      }
+
+      setExistingImages(
+        data.images || []
+      );
+    } catch (imageError) {
+      setExistingImages([]);
+
+      setError(
+        imageError instanceof Error
+          ? imageError.message
+          : "Gagal memuat foto produk"
+      );
+    } finally {
+      setIsLoadingImages(false);
+    }
+  }
+
+  /* =====================================================
      OPEN EDIT
   ===================================================== */
 
@@ -164,7 +228,10 @@ export default function AdminProductsPage() {
     );
 
     setAdditionalImages([]);
+    setExistingImages([]);
     setError(null);
+
+    void loadExistingImages(product.id);
   }
 
   /* =====================================================
@@ -192,6 +259,7 @@ export default function AdminProductsPage() {
     setEditImagePreview("");
 
     setAdditionalImages([]);
+    setExistingImages([]);
 
     setEditingProduct(null);
   }
@@ -269,10 +337,41 @@ export default function AdminProductsPage() {
 
     setError(null);
 
+    const currentTotal =
+      existingImages.length +
+      additionalImages.length;
+
+    const remainingSlots =
+      3 - currentTotal;
+
+    if (remainingSlots <= 0) {
+      setError(
+        "Maksimal 3 foto produk."
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    const selectedFiles =
+      files.slice(
+        0,
+        remainingSlots
+      );
+
+    if (
+      files.length >
+      remainingSlots
+    ) {
+      setError(
+        `Maksimal 3 foto. Hanya ${remainingSlots} foto yang dapat ditambahkan.`
+      );
+    }
+
     const validFiles: ProductImageUpload[] =
       [];
 
-    for (const file of files) {
+    for (const file of selectedFiles) {
       if (
         ![
           "image/jpeg",
@@ -316,7 +415,7 @@ export default function AdminProductsPage() {
   }
 
   /* =====================================================
-     REMOVE ADDITIONAL IMAGE
+     REMOVE NEW ADDITIONAL IMAGE
   ===================================================== */
 
   function removeAdditionalImage(
@@ -339,6 +438,85 @@ export default function AdminProductsPage() {
         );
       }
     );
+  }
+
+  /* =====================================================
+     DELETE EXISTING IMAGE
+  ===================================================== */
+
+  async function handleDeleteExistingImage(
+    image: ProductImageRecord
+  ) {
+    if (!editingProduct) {
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        "Hapus foto ini dari produk?\n\nData produk, harga, stok, dan Pre-Order TIDAK akan terhapus."
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingImageId(image.id);
+      setError(null);
+      setSuccessMsg(null);
+
+      const response =
+        await fetch(
+          `/api/admin/products/${editingProduct.id}/images`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+            body: JSON.stringify({
+              imageId: image.id,
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+        throw new Error(
+          data.error ||
+            "Gagal menghapus foto"
+        );
+      }
+
+      setExistingImages(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !== image.id
+          )
+      );
+
+      setSuccessMsg(
+        "Foto berhasil dihapus. Data Pre-Order dan produk tetap aman."
+      );
+
+      window.setTimeout(() => {
+        setSuccessMsg(null);
+      }, 4000);
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Gagal menghapus foto"
+      );
+    } finally {
+      setDeletingImageId(null);
+    }
   }
 
   /* =====================================================
@@ -453,9 +631,6 @@ export default function AdminProductsPage() {
 
       /* -----------------------------------------------
          UPLOAD ADDITIONAL IMAGES
-         
-         SETIAP FOTO DIKIRIM KE ENDPOINT
-         YANG SAMA.
       ------------------------------------------------ */
 
       if (
@@ -997,425 +1172,4 @@ export default function AdminProductsPage() {
             </div>
 
             <form
-              onSubmit={
-                handleSaveEdit
-              }
-              className="space-y-5 text-xs"
-            >
-
-              {/* NAME */}
-
-              <div>
-                <label className="mb-1 block font-semibold text-gray-700">
-                  Nama Produk
-                </label>
-
-                <input
-                  type="text"
-                  required
-                  value={
-                    editForm.name
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setEditForm({
-                      ...editForm,
-                      name: event
-                        .target
-                        .value,
-                    })
-                  }
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                />
-              </div>
-
-              {/* PRICE */}
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-gray-700">
-                    Harga Normal (Rp)
-                  </label>
-
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={
-                      editForm.price
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setEditForm({
-                        ...editForm,
-                        price:
-                          event
-                            .target
-                            .value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block font-semibold text-gray-700">
-                    Harga Promo / Diskon (Rp)
-                  </label>
-
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Kosongkan jika tidak ada"
-                    value={
-                      editForm.sale_price
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setEditForm({
-                        ...editForm,
-                        sale_price:
-                          event
-                            .target
-                            .value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* STOCK STATUS */}
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1 block font-semibold text-gray-700">
-                    Jumlah Stok
-                  </label>
-
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    value={
-                      editForm.stock
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setEditForm({
-                        ...editForm,
-                        stock:
-                          event
-                            .target
-                            .value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block font-semibold text-gray-700">
-                    Status Publikasi
-                  </label>
-
-                  <select
-                    value={
-                      editForm.status
-                    }
-                    onChange={(
-                      event
-                    ) =>
-                      setEditForm({
-                        ...editForm,
-                        status:
-                          event
-                            .target
-                            .value,
-                      })
-                    }
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                  >
-                    <option value="ACTIVE">
-                      Active (Tampil di Toko)
-                    </option>
-
-                    <option value="DRAFT">
-                      Draft (Disembunyikan)
-                    </option>
-
-                    <option value="ARCHIVED">
-                      Archived
-                    </option>
-                  </select>
-                </div>
-              </div>
-
-              {/* AVAILABILITY */}
-
-              <div>
-                <label className="mb-1 block font-semibold text-gray-700">
-                  Ketersediaan Produk
-                </label>
-
-                <select
-                  value={
-                    editForm.availability
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setEditForm({
-                      ...editForm,
-                      availability:
-                        event
-                          .target
-                          .value,
-                    })
-                  }
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                >
-                  <option value="regular">
-                    Regular — Ready Stock
-                  </option>
-
-                  <option value="preorder_3">
-                    Pre-Order — 3 Hari
-                  </option>
-
-                  <option value="preorder_5">
-                    Pre-Order — 5 Hari
-                  </option>
-
-                  <option value="preorder_7">
-                    Pre-Order — 7 Hari
-                  </option>
-
-                  <option value="preorder_14">
-                    Pre-Order — 14 Hari
-                  </option>
-
-                  <option value="preorder_30">
-                    Pre-Order — 30 Hari
-                  </option>
-                </select>
-              </div>
-
-              {/* =================================================
-                  MAIN IMAGE
-              ================================================= */}
-
-              <div className="rounded-xl border border-gray-200 p-4">
-                <div className="mb-3">
-                  <label className="block font-semibold text-gray-700">
-                    Foto Utama Produk
-                  </label>
-
-                  <p className="mt-1 text-[10px] text-gray-500">
-                    Foto pertama yang menjadi
-                    foto utama produk.
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  <label className="flex-1 cursor-pointer rounded-lg border border-dashed border-looms-teal/40 bg-looms-teal/5 px-4 py-4 text-center font-semibold text-looms-teal transition hover:bg-looms-teal/10">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={
-                        handleEditImageChange
-                      }
-                      className="sr-only"
-                    />
-
-                    {editImageFile
-                      ? editImageFile.name
-                      : "Pilih foto utama"}
-                  </label>
-
-                  <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                    <Image
-                      src={
-                        editImagePreview ||
-                        "/images/editorial-sand.svg"
-                      }
-                      alt="Preview foto utama"
-                      fill
-                      unoptimized={
-                        editImagePreview.startsWith(
-                          "blob:"
-                        ) ||
-                        editImagePreview.startsWith(
-                          "data:"
-                        )
-                      }
-                      className="object-cover"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* =================================================
-                  ADDITIONAL IMAGES
-              ================================================= */}
-
-              <div className="rounded-xl border border-gray-200 p-4">
-                <div className="mb-3">
-                  <label className="block font-semibold text-gray-700">
-                    Foto Produk Lainnya
-                  </label>
-
-                  <p className="mt-1 text-[10px] leading-5 text-gray-500">
-                    Upload beberapa foto sekaligus.
-                    Foto-foto ini akan digunakan
-                    sebagai angle lain pada halaman
-                    detail produk.
-                  </p>
-                </div>
-
-                {/* UPLOAD */}
-
-                <label className="block cursor-pointer rounded-xl border-2 border-dashed border-looms-teal/30 bg-looms-teal/5 p-6 text-center transition hover:border-looms-teal/50 hover:bg-looms-teal/10">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={
-                      handleAdditionalImagesChange
-                    }
-                    className="sr-only"
-                  />
-
-                  <div className="text-2xl">
-                    +
-                  </div>
-
-                  <div className="mt-1 font-semibold text-looms-teal">
-                    Tambahkan Foto
-                  </div>
-
-                  <div className="mt-1 text-[10px] text-gray-500">
-                    Bisa pilih lebih dari 1 foto
-                  </div>
-                </label>
-
-                {/* PREVIEW GRID */}
-
-                {additionalImages.length >
-                  0 && (
-                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {additionalImages.map(
-                      (
-                        imageItem,
-                        index
-                      ) => (
-                        <div
-                          key={`${imageItem.file.name}-${index}`}
-                          className="group relative"
-                        >
-                          <div className="relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
-                            <Image
-                              src={
-                                imageItem.preview
-                              }
-                              alt={`Foto tambahan ${index + 1}`}
-                              fill
-                              unoptimized
-                              className="object-cover"
-                            />
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeAdditionalImage(
-                                index
-                              )
-                            }
-                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs text-white transition hover:bg-red-600"
-                          >
-                            ✕
-                          </button>
-
-                          <p className="mt-1 truncate text-[9px] text-gray-500">
-                            {
-                              imageItem
-                                .file
-                                .name
-                            }
-                          </p>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-
-                <p className="mt-3 text-[10px] text-gray-400">
-                  JPG, PNG, WebP • Maksimal
-                  5 MB per foto.
-                </p>
-              </div>
-
-              {/* DESCRIPTION */}
-
-              <div>
-                <label className="mb-1 block font-semibold text-gray-700">
-                  Deskripsi Produk
-                </label>
-
-                <textarea
-                  rows={4}
-                  value={
-                    editForm.description
-                  }
-                  onChange={(
-                    event
-                  ) =>
-                    setEditForm({
-                      ...editForm,
-                      description:
-                        event
-                          .target
-                          .value,
-                    })
-                  }
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 outline-none focus:border-looms-teal focus:bg-white"
-                />
-              </div>
-
-              {/* BUTTONS */}
-
-              <div className="flex justify-end gap-3 border-t border-gray-100 pt-4">
-                <button
-                  type="button"
-                  onClick={
-                    closeEditModal
-                  }
-                  className="rounded-lg bg-gray-100 px-4 py-2 font-medium text-gray-700 transition hover:bg-gray-200"
-                >
-                  Batal
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={
-                    isSaving
-                  }
-                  className="rounded-lg bg-looms-teal px-5 py-2 font-semibold text-looms-cream transition hover:bg-looms-teal/90 disabled:opacity-50"
-                >
-                  {isSaving
-                    ? "Menyimpan..."
-                    : "Simpan Perubahan"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+              onSubmit=
