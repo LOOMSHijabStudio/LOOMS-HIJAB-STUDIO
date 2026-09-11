@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 
 // =====================================================
-// PRODUCT VALIDATION
+// PRODUCT VALIDATION SCHEMAS
 // =====================================================
 
 export const productCreateSchema = z.object({
@@ -53,6 +53,11 @@ export const productCreateSchema = z.object({
 export const productUpdateSchema =
   productCreateSchema.partial();
 
+
+// =====================================================
+// PRICE
+// =====================================================
+
 export const priceUpdateSchema = z.object({
   price: z.number().positive().optional(),
 
@@ -63,9 +68,19 @@ export const priceUpdateSchema = z.object({
     .nullable(),
 });
 
+
+// =====================================================
+// STOCK
+// =====================================================
+
 export const stockUpdateSchema = z.object({
   stock: z.number().int().min(0),
 });
+
+
+// =====================================================
+// VARIANT
+// =====================================================
 
 export const variantSchema = z.object({
   name: z.string().min(1).max(100),
@@ -82,6 +97,11 @@ export const variantSchema = z.object({
 
   stock: z.number().int().min(0).optional(),
 });
+
+
+// =====================================================
+// CATEGORY
+// =====================================================
 
 export const categorySchema = z.object({
   name: z.string().min(1).max(200),
@@ -102,6 +122,7 @@ export const categorySchema = z.object({
   position: z.number().int().min(0).optional(),
 });
 
+
 // =====================================================
 // COLLECTION
 // =====================================================
@@ -120,20 +141,25 @@ export const collectionSchema = z.object({
 
   description: z.string().optional(),
 
-  cover_image_path:
-    z.string().optional().nullable(),
+  cover_image_path: z
+    .string()
+    .optional()
+    .nullable(),
 
-  banner_image_path:
-    z.string().optional().nullable(),
+  banner_image_path: z
+    .string()
+    .optional()
+    .nullable(),
 
   position: z.number().int().min(0).optional(),
 });
 
+
 // =====================================================
-// IMAGE UPLOAD VALIDATION
+// IMAGE / MEDIA UPLOAD VALIDATION
 // =====================================================
 //
-// FORMAT YANG DIIZINKAN:
+// Format yang DIIZINKAN:
 //
 // JPG
 // JPEG
@@ -141,14 +167,25 @@ export const collectionSchema = z.object({
 // WEBP
 // GIF
 //
-// FORMAT LAIN DITOLAK.
+// Format lain seperti:
 //
-// Word / PDF / Excel / ZIP / RAR / EXE / dll
-// tidak akan diterima.
-// =====================================================
+// PDF
+// DOC
+// DOCX
+// XLS
+// XLSX
+// ZIP
+// MP4
+// MOV
+// SVG
+// EXE
+//
+// AKAN DITOLAK.
+//
 
 export const MAX_FILE_SIZE =
   5 * 1024 * 1024; // 5 MB
+
 
 export const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
@@ -156,6 +193,7 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/webp",
   "image/gif",
 ] as const;
+
 
 export const ALLOWED_IMAGE_EXTENSIONS = [
   "jpg",
@@ -165,15 +203,19 @@ export const ALLOWED_IMAGE_EXTENSIONS = [
   "gif",
 ] as const;
 
+
 // =====================================================
-// IMAGE DIMENSIONS
+// IMAGE DIMENSION CONSTRAINTS
 // =====================================================
 
 export const MIN_IMAGE_WIDTH = 100;
+
 export const MIN_IMAGE_HEIGHT = 100;
 
 export const MAX_IMAGE_WIDTH = 8000;
+
 export const MAX_IMAGE_HEIGHT = 8000;
+
 
 // =====================================================
 // TYPES
@@ -199,3 +241,14 @@ export type CategoryInput =
 
 export type CollectionInput =
   z.infer<typeof collectionSchema>;
+
+
+// =====================================================
+// IMAGE TYPES
+// =====================================================
+
+export type AllowedImageMimeType =
+  (typeof ALLOWED_IMAGE_TYPES)[number];
+
+export type AllowedImageExtension =
+  (typeof ALLOWED_IMAGE_EXTENSIONS)[number];
