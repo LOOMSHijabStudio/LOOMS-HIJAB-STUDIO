@@ -252,8 +252,10 @@ export async function getCatalogProducts(): Promise<
         product.stock ?? 0,
       ),
 
-      availability: product.availability ?? "regular",
-      
+      availability: String(
+        product.availability ?? "regular",
+      ).toLowerCase(),
+
       isNew: Boolean(
         product.is_new_arrival,
       ),
