@@ -99,9 +99,7 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
 
       return {
         id: product.id,
-
         slug: product.slug,
-
         name: product.name,
 
         category:
@@ -120,7 +118,6 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
             : undefined,
 
         image: imageUrl,
-
         imageAlt: product.name,
 
         description:
@@ -149,7 +146,6 @@ async function getCatalogProducts(): Promise<DemoProduct[]> {
         ),
 
         variants: [],
-
         variantIds: {},
       };
     });
@@ -244,15 +240,10 @@ export default async function HomePage() {
       </section>
 
       {/* =====================================================
-          ESSENTIAL EDIT
+          PRODUCT GRID
           ===================================================== */}
 
       <section className="mx-auto max-w-[1440px] bg-white px-5 py-20 lg:px-10 lg:py-28">
-        <SectionHeading
-          eyebrow="THE ESSENTIAL EDIT"
-          title="Considered essentials."
-        />
-
         {gridProducts.length > 0 ? (
           <ProductGrid products={gridProducts} />
         ) : (
