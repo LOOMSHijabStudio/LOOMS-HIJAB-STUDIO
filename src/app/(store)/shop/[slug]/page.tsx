@@ -11,6 +11,10 @@ import { isSupabaseConfigured } from "@/server/auth/session";
 
 export const dynamic = "force-dynamic";
 
+/* =====================================================
+   TYPES
+===================================================== */
+
 type ProductImage = {
   storage_path: string;
   is_primary: boolean;
@@ -45,18 +49,27 @@ type Product = {
   product_variants: ProductVariant[];
 };
 
+/* =====================================================
+   GET PRODUCT DETAIL
+===================================================== */
+
 async function getProduct(
   slug: string
 ): Promise<Product | null> {
   if (!isSupabaseConfigured()) {
-    console.error("Supabase belum dikonfigurasi.");
+    console.error(
+      "Supabase belum dikonfigurasi."
+    );
+
     return null;
   }
 
   try {
-    const client = createSupabaseServiceClient();
+    const client =
+      createSupabaseServiceClient();
 
-    const decodedSlug = decodeURIComponent(slug).trim();
+    const decodedSlug =
+      decodeURIComponent(slug).trim();
 
     const possibleSlugs = [
       decodedSlug,
@@ -68,38 +81,41 @@ async function getProduct(
     ].filter(Boolean);
 
     for (const currentSlug of possibleSlugs) {
-      const { data, error } = await client
+      const {
+        data,
+        error,
+      } = await client
         .from("products")
         .select(
           `
+          id,
+          name,
+          slug,
+          sku,
+          description,
+          material,
+          care_instructions,
+          price,
+          sale_price,
+          stock,
+          status,
+          is_new_arrival,
+          is_best_seller,
+          product_images (
+            storage_path,
+            is_primary,
+            position
+          ),
+          product_variants (
             id,
             name,
-            slug,
             sku,
-            description,
-            material,
-            care_instructions,
+            image_path,
             price,
-            sale_price,
             stock,
-            status,
-            is_new_arrival,
-            is_best_seller,
-            product_images (
-              storage_path,
-              is_primary,
-              position
-            ),
-            product_variants (
-              id,
-              name,
-              sku,
-              image_path,
-              price,
-              stock,
-              is_active
-            )
-          `
+            is_active
+          )
+        `
         )
         .eq("slug", currentSlug)
         .eq("status", "ACTIVE")
@@ -118,7 +134,9 @@ async function getProduct(
         return {
           ...(data as Product),
 
-          price: Number(data.price ?? 0),
+          price: Number(
+            data.price ?? 0
+          ),
 
           sale_price:
             data.sale_price !== null &&
@@ -126,7 +144,9 @@ async function getProduct(
               ? Number(data.sale_price)
               : null,
 
-          stock: Number(data.stock ?? 0),
+          stock: Number(
+            data.stock ?? 0
+          ),
 
           product_images:
             (data.product_images ??
@@ -163,36 +183,199 @@ async function getProduct(
   }
 }
 
+/* =====================================================
+   GET RELATED PRODUCTS
+===================================================== */
+
+async function getRelatedProducts(
+  currentProductId: string
+) {
+  if (!isSupabaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const client =
+      createSupabaseServiceClient();
+
+    /*
+     * Ambil produk ACTIVE lainnya.
+     *
+     * Produk yang sedang dibuka dikecualikan
+     * menggunakan .neq("id", currentProductId)
+     */
+
+    const {
+      data,
+      error,
+    } = await client
+      .from("products")
+      .select(
+        `
+        id,
+        name,
+        slug,
+        price,
+        sale_price,
+        created_at,
+        product_images (
+          storage_path,
+          is_primary,
+          position
+        )
+      `
+      )
+      .eq("status", "ACTIVE")
+      .neq("id", currentProductId)
+      .order("created_at", {
+        ascending: false,
+      })
+      .limit(12);
+
+    if (error) {
+      console.error(
+        "Gagal mengambil related products:",
+        error
+      );
+
+      return [];
+    }
+
+    const relatedProducts = (
+      data || []
+    ).map((product) => {
+      const images =
+        (product.product_images ||
+          []) as ProductImage[];
+
+      const sortedImages = [
+        ...images,
+      ].sort(
+        (a, b) =>
+          (a.position ?? 0) -
+          (b.position ?? 0)
+      );
+
+      const primaryImage =
+        sortedImages.find(
+          (image) =>
+            image.is_primary
+        ) ??
+        sortedImages[0];
+
+      let imageUrl =
+        "/images/editorial-mocha.svg";
+
+      if (
+        primaryImage?.storage_path
+      ) {
+        const publicUrl =
+          client.storage
+            .from(
+              "product-images"
+            )
+            .getPublicUrl(
+              primaryImage.storage_path
+            );
+
+        if (
+          publicUrl.data
+            ?.publicUrl
+        ) {
+          imageUrl =
+            publicUrl.data.publicUrl;
+        }
+      }
+
+      return {
+        id: product.id,
+
+        name: product.name,
+
+        slug: product.slug,
+
+        price: Number(
+          product.price ?? 0
+        ),
+
+        sale_price:
+          product.sale_price !== null &&
+          product.sale_price !==
+            undefined
+            ? Number(
+                product.sale_price
+              )
+            : null,
+
+        image: imageUrl,
+      };
+    });
+
+    return relatedProducts;
+  } catch (error) {
+    console.error(
+      "Related products error:",
+      error
+    );
+
+    return [];
+  }
+}
+
+/* =====================================================
+   METADATA
+===================================================== */
+
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug } =
+    await params;
 
-  const product = await getProduct(slug);
+  const product =
+    await getProduct(slug);
 
   if (!product) {
     return {
-      title: "Product Not Found | LOOMS",
+      title:
+        "Product Not Found | LOOMS",
     };
   }
 
   return {
-    title: `${product.name} | LOOMS`,
+    title:
+      `${product.name} | LOOMS`,
+
     description:
       product.description ||
       `Discover ${product.name} from the LOOMS collection.`,
   };
 }
 
-function formatRupiah(value: number) {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(value);
+/* =====================================================
+   FORMAT RUPIAH
+===================================================== */
+
+function formatRupiah(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "id-ID",
+    {
+      style: "currency",
+      currency: "IDR",
+      maximumFractionDigits: 0,
+    }
+  ).format(value);
 }
+
+/* =====================================================
+   IMAGE URL
+===================================================== */
 
 function getImageUrl(
   client: ReturnType<
@@ -209,27 +392,60 @@ function getImageUrl(
 
   return client.storage
     .from("product-images")
-    .getPublicUrl(storagePath)
+    .getPublicUrl(
+      storagePath
+    )
     .data.publicUrl;
 }
+
+/* =====================================================
+   PRODUCT PAGE
+===================================================== */
 
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{
+    slug: string;
+  }>;
 }) {
-  const { slug } = await params;
+  const { slug } =
+    await params;
 
-  const product = await getProduct(slug);
+  /* ===================================================
+     PRODUCT UTAMA
+  =================================================== */
+
+  const product =
+    await getProduct(slug);
 
   if (!product) {
     notFound();
   }
 
-  const client = createSupabaseServiceClient();
+  /* ===================================================
+     SUPABASE CLIENT
+  =================================================== */
+
+  const client =
+    createSupabaseServiceClient();
+
+  /* ===================================================
+     RELATED PRODUCTS
+  =================================================== */
+
+  const relatedProducts =
+    await getRelatedProducts(
+      product.id
+    );
+
+  /* ===================================================
+     PRODUCT IMAGES
+  =================================================== */
 
   const images = [
-    ...(product.product_images ?? []),
+    ...(product.product_images ??
+      []),
   ].sort(
     (a, b) =>
       (a.position ?? 0) -
@@ -238,65 +454,95 @@ export default async function ProductPage({
 
   const primaryImage =
     images.find(
-      (image) => image.is_primary
+      (image) =>
+        image.is_primary
     ) ?? images[0];
 
-  const mainImage = getImageUrl(
-    client,
-    primaryImage?.storage_path
-  );
+  const mainImage =
+    getImageUrl(
+      client,
+      primaryImage?.storage_path
+    );
+
+  /* ===================================================
+     VARIANTS
+  =================================================== */
 
   const activeVariants = (
-    product.product_variants ?? []
+    product.product_variants ??
+    []
   ).filter(
-    (variant) => variant.is_active
+    (variant) =>
+      variant.is_active
   );
 
   const hasVariants =
     activeVariants.length > 0;
 
+  /* ===================================================
+     SALE PRICE
+  =================================================== */
+
   const salePrice =
     product.sale_price !== null &&
-    product.sale_price < product.price
+    product.sale_price <
+      product.price
       ? product.sale_price
       : null;
 
   const displayPrice =
-    salePrice ?? product.price;
+    salePrice ??
+    product.price;
 
-  const isInStock = hasVariants
-    ? activeVariants.some(
-        (variant) => variant.stock > 0
-      )
-    : product.stock > 0;
+  /* ===================================================
+     STOCK
+  =================================================== */
+
+  const isInStock =
+    hasVariants
+      ? activeVariants.some(
+          (variant) =>
+            variant.stock > 0
+        )
+      : product.stock > 0;
 
   const defaultVariant =
     hasVariants
       ? activeVariants.find(
-          (variant) => variant.stock > 0
-        ) ?? activeVariants[0]
+          (variant) =>
+            variant.stock > 0
+        ) ??
+        activeVariants[0]
       : null;
 
-  /*
-   * DATA UNTUK CART
-   */
+  /* ===================================================
+     DATA CART
+  =================================================== */
+
   const cartProduct: DemoProduct = {
     id: product.id,
+
     slug: product.slug,
+
     name: product.name,
 
     category:
       "The LOOMS Collection",
 
-    price: product.price,
+    price:
+      product.price,
 
     ...(salePrice !== null
-      ? { salePrice }
+      ? {
+          salePrice,
+        }
       : {}),
 
-    image: mainImage,
+    image:
+      mainImage,
 
-    imageAlt: product.name,
+    imageAlt:
+      product.name,
 
     description:
       product.description ||
@@ -310,7 +556,8 @@ export default async function ProductPage({
       product.care_instructions ||
       "Hand wash cold. Dry flat away from direct sunlight.",
 
-    stock: product.stock,
+    stock:
+      product.stock,
 
     isNew:
       product.is_new_arrival,
@@ -320,7 +567,8 @@ export default async function ProductPage({
 
     variants:
       activeVariants.map(
-        (variant) => variant.name
+        (variant) =>
+          variant.name
       ),
 
     variantIds:
@@ -334,9 +582,17 @@ export default async function ProductPage({
       ),
   };
 
+  /* ===================================================
+     RENDER
+  =================================================== */
+
   return (
     <main className="mx-auto max-w-[1440px] px-5 py-10 lg:px-10 lg:py-16">
-      {/* BACK */}
+
+      {/* =================================================
+          BACK
+      ================================================= */}
+
       <div className="mb-8">
         <Link
           href="/shop"
@@ -346,8 +602,16 @@ export default async function ProductPage({
         </Link>
       </div>
 
+      {/* =================================================
+          PRODUCT DETAIL
+      ================================================= */}
+
       <section className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-        {/* IMAGE */}
+
+        {/* =================================================
+            IMAGE
+        ================================================= */}
+
         <div className="relative overflow-hidden bg-[#f2eee9]">
           <div className="relative aspect-[4/5] w-full">
             <Image
@@ -361,9 +625,14 @@ export default async function ProductPage({
           </div>
         </div>
 
-        {/* PRODUCT INFO */}
+        {/* =================================================
+            PRODUCT INFO
+        ================================================= */}
+
         <div className="flex flex-col justify-center">
+
           {/* LABEL */}
+
           <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-looms-gray">
             {product.is_new_arrival
               ? "NEW ARRIVAL"
@@ -373,11 +642,13 @@ export default async function ProductPage({
           </p>
 
           {/* NAME */}
+
           <h1 className="mt-4 font-display text-5xl leading-[0.95] text-looms-teal md:text-6xl">
             {product.name}
           </h1>
 
-          {/* BASE PRICE */}
+          {/* PRICE */}
+
           {!hasVariants && (
             <div className="mt-6 flex items-center gap-3">
               {salePrice !== null ? (
@@ -405,6 +676,7 @@ export default async function ProductPage({
           )}
 
           {/* DESCRIPTION */}
+
           <div className="mt-8 max-w-xl">
             <p className="text-sm leading-7 text-looms-gray">
               {product.description ||
@@ -412,20 +684,26 @@ export default async function ProductPage({
             </p>
           </div>
 
-          {/* PURCHASE + VARIANT */}
+          {/* PURCHASE */}
+
           <div className="mt-8 max-w-md">
             <ProductDetailPurchase
               product={cartProduct}
-              variants={activeVariants}
+              variants={
+                activeVariants
+              }
               defaultVariantId={
                 defaultVariant?.id ??
                 null
               }
-              basePrice={displayPrice}
+              basePrice={
+                displayPrice
+              }
             />
           </div>
 
-          {/* GENERAL STOCK MESSAGE */}
+          {/* STOCK */}
+
           {!hasVariants && (
             <div className="mt-7">
               {isInStock ? (
@@ -442,9 +720,12 @@ export default async function ProductPage({
           )}
 
           {/* DETAILS */}
+
           <div className="mt-10 border-t border-gray-200 pt-7">
             <div className="grid gap-5 text-sm">
+
               {/* MATERIAL */}
+
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   MATERIAL
@@ -457,6 +738,7 @@ export default async function ProductPage({
               </div>
 
               {/* CARE */}
+
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   CARE
@@ -469,6 +751,7 @@ export default async function ProductPage({
               </div>
 
               {/* PRODUCT CODE */}
+
               <div>
                 <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-looms-gray">
                   PRODUCT CODE
@@ -478,10 +761,22 @@ export default async function ProductPage({
                   {product.sku}
                 </p>
               </div>
+
             </div>
           </div>
         </div>
       </section>
+
+      {/* =================================================
+          RELATED PRODUCTS
+
+          INI BAGIAN NOMOR 3 + 4
+      ================================================= */}
+
+      <RelatedProductsCarousel
+        products={relatedProducts}
+      />
+
     </main>
   );
 }
