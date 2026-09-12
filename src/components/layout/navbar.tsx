@@ -26,30 +26,30 @@ export function Navbar() {
 
   return (
     <>
-      {/* ========================================================= */}
-      {/* TOP ANNOUNCEMENT */}
-      {/* ========================================================= */}
-      <div className="bg-looms-teal px-3 py-2 text-center text-[9px] font-medium leading-4 tracking-[0.09em] text-looms-cream sm:text-[10px] sm:tracking-[0.14em]">
+      {/* =====================================================
+          ANNOUNCEMENT BAR
+          ===================================================== */}
+      <div className="relative z-[100] bg-looms-teal px-3 py-2 text-center text-[9px] font-medium leading-4 tracking-[0.09em] text-looms-cream sm:text-[10px] sm:tracking-[0.14em]">
         COMPLIMENTARY SHIPPING ON ORDERS OVER IDR 500.000
       </div>
 
-      {/* ========================================================= */}
-      {/* HEADER */}
-      {/* ========================================================= */}
-      <header className="border-b border-looms-teal/15 bg-looms-cream">
+      {/* =====================================================
+          NAVBAR
+          ===================================================== */}
+      <header className="relative z-[100] border-b border-looms-teal/15 bg-looms-cream">
         <nav
-          className="mx-auto flex h-16 max-w-[1440px] items-center px-3 sm:px-5 lg:h-20 lg:px-10"
+          className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-3 sm:px-5 lg:h-20 lg:px-10"
           aria-label="Primary navigation"
         >
-          {/* ===================================================== */}
-          {/* MOBILE LEFT */}
-          {/* ===================================================== */}
+          {/* =================================================
+              MOBILE LEFT
+              ================================================= */}
           <div className="flex min-w-0 flex-1 items-center gap-1 lg:hidden">
             <button
               type="button"
               aria-label="Open navigation"
               onClick={() => setMenuOpen(true)}
-              className="grid h-11 w-11 place-items-center"
+              className="grid h-11 w-11 shrink-0 place-items-center"
             >
               <Icon
                 name="menu"
@@ -60,7 +60,7 @@ export function Navbar() {
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
-              className="grid h-11 w-11 place-items-center"
+              className="grid h-11 w-11 shrink-0 place-items-center"
             >
               <Icon
                 name="search"
@@ -69,66 +69,64 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* ===================================================== */}
-          {/* LOGO */}
-          {/* ===================================================== */}
+          {/* =================================================
+              LOGO
+              ================================================= */}
           <Link
             href="/"
-            className="shrink-0 font-display text-[1.65rem] tracking-[0.12em] text-looms-teal sm:text-3xl sm:tracking-[0.18em] lg:text-4xl"
+            aria-label="LOOMS Home"
+            className="relative z-[101] shrink-0 whitespace-nowrap font-display text-[1.65rem] tracking-[0.12em] text-looms-teal sm:text-3xl sm:tracking-[0.18em] lg:text-4xl"
           >
             LOOMS
           </Link>
 
-          {/* ===================================================== */}
-          {/* DESKTOP NAV */}
-          {/* ===================================================== */}
+          {/* =================================================
+              DESKTOP NAV
+              ================================================= */}
           <div
             className="
               hidden
-              min-w-0
               flex-1
               items-center
-              lg:ml-10
+              justify-center
+              gap-5
+              px-5
               lg:flex
+              xl:gap-6
             "
           >
-            <div
-              className="
-                flex
-                flex-nowrap
-                items-center
-                gap-6
-                whitespace-nowrap
-              "
-            >
-              {links.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="
-                    shrink-0
-                    text-xs
-                    tracking-[0.08em]
-                    text-looms-teal
-                    transition
-                    hover:text-looms-gray
-                  "
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="
+                  relative
+                  z-[101]
+                  block
+                  shrink-0
+                  whitespace-nowrap
+                  text-xs
+                  tracking-[0.08em]
+                  text-looms-teal
+                  pointer-events-auto
+                  transition-colors
+                  hover:text-looms-gray
+                "
+              >
+                {link.label}
+              </Link>
+            ))}
           </div>
 
-          {/* ===================================================== */}
-          {/* RIGHT ACTIONS */}
-          {/* ===================================================== */}
+          {/* =================================================
+              RIGHT ACTIONS
+              ================================================= */}
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
             {/* SEARCH */}
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
-              className="hidden lg:grid lg:h-11 lg:w-11 lg:place-items-center"
+              className="relative z-[101] hidden h-11 w-11 shrink-0 place-items-center pointer-events-auto lg:grid"
             >
               <Icon
                 name="search"
@@ -140,7 +138,7 @@ export function Navbar() {
             <Link
               href="/wishlist"
               aria-label={`Wishlist, ${wishlist.length} items`}
-              className="relative hidden lg:grid lg:h-11 lg:w-11 lg:place-items-center"
+              className="relative z-[101] hidden h-11 w-11 shrink-0 place-items-center pointer-events-auto lg:grid"
             >
               {wishlist.length > 0 ? (
                 <span
@@ -168,7 +166,7 @@ export function Navbar() {
               type="button"
               onClick={() => setOpen(true)}
               aria-label={`Open cart, ${itemCount} items`}
-              className="relative grid h-11 w-11 place-items-center"
+              className="relative z-[101] grid h-11 w-11 shrink-0 place-items-center pointer-events-auto"
             >
               <Icon
                 name="bag"
@@ -185,11 +183,11 @@ export function Navbar() {
         </nav>
       </header>
 
-      {/* ========================================================= */}
-      {/* MOBILE MENU */}
-      {/* ========================================================= */}
+      {/* =====================================================
+          MOBILE MENU
+          ===================================================== */}
       {menuOpen && (
-        <div className="fixed inset-0 z-[60]">
+        <div className="fixed inset-0 z-[999]">
           {/* BACKDROP */}
           <button
             type="button"
@@ -207,9 +205,13 @@ export function Navbar() {
           >
             {/* MOBILE HEADER */}
             <div className="flex items-center justify-between">
-              <span className="font-display text-2xl tracking-[0.14em]">
+              <Link
+                href="/"
+                onClick={() => setMenuOpen(false)}
+                className="font-display text-2xl tracking-[0.14em]"
+              >
                 LOOMS
-              </span>
+              </Link>
 
               <button
                 type="button"
@@ -228,7 +230,7 @@ export function Navbar() {
             <div className="mt-10 flex flex-col">
               {links.map((link) => (
                 <Link
-                  key={link.label}
+                  key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
                   className="border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
