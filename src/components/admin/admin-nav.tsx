@@ -22,59 +22,79 @@ const navItems: NavItem[] = [
     roles: ["OWNER", "ADMIN", "EDITOR"],
     exact: true,
   },
+
   {
     href: "/admin/products",
     label: "Produk",
     roles: ["OWNER", "ADMIN", "EDITOR"],
     exact: true,
   },
+
   {
     href: "/admin/orders",
     label: "Pesanan",
     roles: ["OWNER", "ADMIN"],
   },
+
   {
     href: "/admin/categories",
     label: "Kategori",
     roles: ["OWNER", "ADMIN"],
   },
+
   {
     href: "/admin/collection",
     label: "Collection",
     roles: ["OWNER", "ADMIN"],
   },
+
   {
     href: "/admin/products?placement=NEW_ARRIVALS",
     label: "New Arrivals",
     roles: ["OWNER", "ADMIN", "EDITOR"],
     placement: "NEW_ARRIVALS",
   },
+
   {
     href: "/admin/products?placement=BEST_SELLERS",
     label: "Best Sellers",
     roles: ["OWNER", "ADMIN", "EDITOR"],
     placement: "BEST_SELLERS",
   },
+
   {
     href: "/admin/looms-society",
     label: "Looms Society",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
+
   {
     href: "/admin/promo-codes",
     label: "Promo Codes",
     roles: ["OWNER", "ADMIN"],
   },
+
   {
     href: "/admin/appearance",
     label: "Tampilan Toko",
     roles: ["OWNER", "ADMIN", "EDITOR"],
   },
+
+  // =========================================================
+  // ABOUT
+  // =========================================================
+  {
+    href: "/admin/about",
+    label: "About",
+    roles: ["OWNER", "ADMIN", "EDITOR"],
+  },
+
   {
     href: "/admin/users",
     label: "Admin Users",
     roles: ["OWNER"],
   },
+
   {
     href: "/admin/audit-logs",
     label: "Audit Logs",
@@ -82,57 +102,87 @@ const navItems: NavItem[] = [
   },
 ];
 
-function hasRole(roles: string[], allowedRoles: string[]) {
-  return roles.some((role) => allowedRoles.includes(role));
+function hasRole(
+  roles: string[],
+  allowedRoles: string[]
+) {
+  return roles.some((role) =>
+    allowedRoles.includes(role)
+  );
 }
 
-export function AdminNav({ roles }: AdminNavProps) {
+export function AdminNav({
+  roles,
+}: AdminNavProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const currentPlacement = searchParams.get("placement");
+  const currentPlacement =
+    searchParams.get("placement");
 
-  const visibleItems = navItems.filter((item) =>
-    hasRole(roles, item.roles)
-  );
+  const visibleItems =
+    navItems.filter((item) =>
+      hasRole(roles, item.roles)
+    );
 
   function isActive(item: NavItem) {
-    // New Arrivals
-    if (item.placement === "NEW_ARRIVALS") {
+    // =======================================================
+    // NEW ARRIVALS
+    // =======================================================
+    if (
+      item.placement === "NEW_ARRIVALS"
+    ) {
       return (
         pathname === "/admin/products" &&
         currentPlacement === "NEW_ARRIVALS"
       );
     }
 
-    // Best Sellers
-    if (item.placement === "BEST_SELLERS") {
+    // =======================================================
+    // BEST SELLERS
+    // =======================================================
+    if (
+      item.placement === "BEST_SELLERS"
+    ) {
       return (
         pathname === "/admin/products" &&
         currentPlacement === "BEST_SELLERS"
       );
     }
 
-    // Produk utama
-    if (item.href === "/admin/products") {
+    // =======================================================
+    // PRODUK UTAMA
+    // =======================================================
+    if (
+      item.href === "/admin/products"
+    ) {
       return (
         pathname === "/admin/products" &&
         !currentPlacement
       );
     }
 
-    // Dashboard
+    // =======================================================
+    // DASHBOARD
+    // =======================================================
     if (item.exact) {
       return pathname === item.href;
     }
 
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    // =======================================================
+    // MENU BIASA
+    // =======================================================
+    return (
+      pathname === item.href ||
+      pathname.startsWith(`${item.href}/`)
+    );
   }
 
   return (
     <nav className="space-y-1">
       {visibleItems.map((item) => {
-        const active = isActive(item);
+        const active =
+          isActive(item);
 
         return (
           <Link
@@ -152,4 +202,3 @@ export function AdminNav({ roles }: AdminNavProps) {
     </nav>
   );
 }
-
