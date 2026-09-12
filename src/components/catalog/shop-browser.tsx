@@ -210,24 +210,50 @@ export function ShopBrowser({
           ===================================================== */}
 
       <div className="mt-10 grid gap-3 border-y border-looms-teal/15 py-4 md:grid-cols-4">
-        {/* SEARCH */}
+        {/* =====================================================
+            SEARCH
+            ===================================================== */}
 
         <label className="md:col-span-2">
           <span className="sr-only">
             Search products
           </span>
 
-          <input
-            value={query}
-            onChange={(event) =>
-              setQuery(event.target.value)
-            }
-            placeholder="SEARCH THE COLLECTION"
-            className="w-full bg-transparent py-2 text-xs tracking-[0.1em] outline-none placeholder:text-looms-gray"
-          />
+          <div className="relative w-full">
+            <input
+              type="text"
+              value={query}
+              onChange={(event) =>
+                setQuery(event.target.value)
+              }
+              placeholder="SEARCH THE COLLECTION"
+              aria-label="Search the collection"
+              className="
+                w-full
+                rounded-lg
+                border-2
+                border-looms-teal/30
+                bg-white
+                px-4
+                py-3
+                text-xs
+                tracking-[0.1em]
+                text-looms-teal
+                outline-none
+                transition
+                placeholder:text-looms-gray
+                hover:border-looms-teal/50
+                focus:border-looms-teal
+                focus:ring-2
+                focus:ring-looms-teal/10
+              "
+            />
+          </div>
         </label>
 
-        {/* CATEGORY */}
+        {/* =====================================================
+            CATEGORY
+            ===================================================== */}
 
         <label>
           <span className="sr-only">
@@ -239,7 +265,14 @@ export function ShopBrowser({
             onChange={(event) =>
               setCategory(event.target.value)
             }
-            className="w-full bg-transparent py-2 text-xs text-looms-teal outline-none"
+            className="
+              w-full
+              bg-transparent
+              py-2
+              text-xs
+              text-looms-teal
+              outline-none
+            "
           >
             <option value="All">
               All categories
@@ -258,7 +291,9 @@ export function ShopBrowser({
           </select>
         </label>
 
-        {/* SORT */}
+        {/* =====================================================
+            SORT
+            ===================================================== */}
 
         <label>
           <span className="sr-only">
@@ -270,7 +305,14 @@ export function ShopBrowser({
             onChange={(event) =>
               setSort(event.target.value)
             }
-            className="w-full bg-transparent py-2 text-xs text-looms-teal outline-none"
+            className="
+              w-full
+              bg-transparent
+              py-2
+              text-xs
+              text-looms-teal
+              outline-none
+            "
           >
             <option value="featured">
               Featured
@@ -310,7 +352,13 @@ export function ShopBrowser({
             onChange={(event) =>
               setCollection(event.target.value)
             }
-            className="bg-transparent py-2 text-xs text-looms-gray outline-none"
+            className="
+              bg-transparent
+              py-2
+              text-xs
+              text-looms-gray
+              outline-none
+            "
           >
             <option value="All">
               All products
@@ -360,4 +408,3 @@ export function ShopBrowser({
     </>
   );
 }
-
