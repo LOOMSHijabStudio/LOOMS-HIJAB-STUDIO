@@ -26,30 +26,25 @@ export function Navbar() {
 
   return (
     <>
-      {/* ===================================================== */}
-      {/* ANNOUNCEMENT BAR */}
-      {/* ===================================================== */}
-
+      {/* ========================================================= */}
+      {/* TOP ANNOUNCEMENT */}
+      {/* ========================================================= */}
       <div className="bg-looms-teal px-3 py-2 text-center text-[9px] font-medium leading-4 tracking-[0.09em] text-looms-cream sm:text-[10px] sm:tracking-[0.14em]">
         COMPLIMENTARY SHIPPING ON ORDERS OVER IDR 500.000
       </div>
 
-      {/* ===================================================== */}
+      {/* ========================================================= */}
       {/* HEADER */}
-      {/* ===================================================== */}
-
+      {/* ========================================================= */}
       <header className="border-b border-looms-teal/15 bg-looms-cream">
         <nav
-          className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-3 sm:px-5 lg:h-20 lg:px-10"
+          className="mx-auto flex h-16 max-w-[1440px] items-center px-3 sm:px-5 lg:h-20 lg:px-10"
           aria-label="Primary navigation"
         >
-          {/* ================================================= */}
+          {/* ===================================================== */}
           {/* MOBILE LEFT */}
-          {/* ================================================= */}
-
+          {/* ===================================================== */}
           <div className="flex min-w-0 flex-1 items-center gap-1 lg:hidden">
-            {/* MOBILE MENU BUTTON */}
-
             <button
               type="button"
               aria-label="Open navigation"
@@ -62,8 +57,6 @@ export function Navbar() {
               />
             </button>
 
-            {/* MOBILE SEARCH */}
-
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
@@ -76,45 +69,62 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* ================================================= */}
+          {/* ===================================================== */}
           {/* LOGO */}
-          {/* ================================================= */}
-
+          {/* ===================================================== */}
           <Link
             href="/"
-            className="shrink-0 whitespace-nowrap font-display text-[1.65rem] tracking-[0.12em] text-looms-teal sm:text-3xl sm:tracking-[0.18em] lg:text-4xl"
+            className="shrink-0 font-display text-[1.65rem] tracking-[0.12em] text-looms-teal sm:text-3xl sm:tracking-[0.18em] lg:text-4xl"
           >
             LOOMS
           </Link>
 
-          {/* ================================================= */}
+          {/* ===================================================== */}
           {/* DESKTOP NAV */}
-          {/* ================================================= */}
-
-          <div className="hidden min-w-0 flex-1 items-center justify-center px-4 lg:flex">
-            <nav
-              className="flex items-center justify-center gap-5 whitespace-nowrap xl:gap-6"
-              aria-label="Desktop navigation"
+          {/* ===================================================== */}
+          <div
+            className="
+              hidden
+              min-w-0
+              flex-1
+              items-center
+              lg:ml-10
+              lg:flex
+            "
+          >
+            <div
+              className="
+                flex
+                flex-nowrap
+                items-center
+                gap-6
+                whitespace-nowrap
+              "
             >
               {links.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="shrink-0 whitespace-nowrap text-xs tracking-[0.06em] text-looms-teal transition hover:text-looms-gray"
+                  className="
+                    shrink-0
+                    text-xs
+                    tracking-[0.08em]
+                    text-looms-teal
+                    transition
+                    hover:text-looms-gray
+                  "
                 >
                   {link.label}
                 </Link>
               ))}
-            </nav>
+            </div>
           </div>
 
-          {/* ================================================= */}
+          {/* ===================================================== */}
           {/* RIGHT ACTIONS */}
-          {/* ================================================= */}
-
+          {/* ===================================================== */}
           <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
             {/* SEARCH */}
-
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
@@ -127,7 +137,6 @@ export function Navbar() {
             </Link>
 
             {/* WISHLIST */}
-
             <Link
               href="/wishlist"
               aria-label={`Wishlist, ${wishlist.length} items`}
@@ -155,7 +164,6 @@ export function Navbar() {
             </Link>
 
             {/* CART */}
-
             <button
               type="button"
               onClick={() => setOpen(true)}
@@ -177,14 +185,12 @@ export function Navbar() {
         </nav>
       </header>
 
-      {/* ===================================================== */}
+      {/* ========================================================= */}
       {/* MOBILE MENU */}
-      {/* ===================================================== */}
-
+      {/* ========================================================= */}
       {menuOpen && (
         <div className="fixed inset-0 z-[60]">
           {/* BACKDROP */}
-
           <button
             type="button"
             aria-label="Close navigation"
@@ -193,7 +199,6 @@ export function Navbar() {
           />
 
           {/* MENU PANEL */}
-
           <div
             role="dialog"
             aria-modal="true"
@@ -201,7 +206,6 @@ export function Navbar() {
             className="relative flex h-full w-[88%] max-w-sm flex-col bg-looms-cream px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
           >
             {/* MOBILE HEADER */}
-
             <div className="flex items-center justify-between">
               <span className="font-display text-2xl tracking-[0.14em]">
                 LOOMS
@@ -221,27 +225,27 @@ export function Navbar() {
             </div>
 
             {/* MOBILE LINKS */}
-
             <div className="mt-10 flex flex-col">
               {links.map((link) => (
                 <Link
                   key={link.label}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className="whitespace-nowrap border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
+                  className="border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
                 >
                   {link.label}
                 </Link>
               ))}
 
               {/* MOBILE WISHLIST */}
-
               <Link
                 href="/wishlist"
                 onClick={() => setMenuOpen(false)}
                 className="flex items-center justify-between border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
               >
-                <span>Wishlist</span>
+                <span>
+                  Wishlist
+                </span>
 
                 {wishlist.length > 0 && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-looms-teal px-1 text-[9px] text-looms-cream">
