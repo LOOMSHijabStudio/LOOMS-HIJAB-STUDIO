@@ -38,7 +38,19 @@ export function Navbar() {
           ===================================================== */}
       <header className="relative z-[100] border-b border-looms-teal/15 bg-looms-cream">
         <nav
-          className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-3 sm:px-5 lg:h-20 lg:px-10"
+          className="
+            mx-auto
+            flex
+            h-16
+            w-full
+            max-w-[1440px]
+            items-center
+            px-3
+            sm:px-5
+            lg:h-20
+            lg:px-8
+            xl:px-10
+          "
           aria-label="Primary navigation"
         >
           {/* =================================================
@@ -75,7 +87,19 @@ export function Navbar() {
           <Link
             href="/"
             aria-label="LOOMS Home"
-            className="relative z-[101] shrink-0 whitespace-nowrap font-display text-[1.65rem] tracking-[0.12em] text-looms-teal sm:text-3xl sm:tracking-[0.18em] lg:text-4xl"
+            className="
+              relative
+              z-[101]
+              shrink-0
+              whitespace-nowrap
+              font-display
+              text-[1.65rem]
+              tracking-[0.12em]
+              text-looms-teal
+              sm:text-3xl
+              sm:tracking-[0.18em]
+              lg:text-4xl
+            "
           >
             LOOMS
           </Link>
@@ -86,13 +110,15 @@ export function Navbar() {
           <div
             className="
               hidden
+              min-w-0
               flex-1
               items-center
               justify-center
-              gap-5
-              px-5
+              gap-4
+              px-4
               lg:flex
-              xl:gap-6
+              xl:gap-5
+              xl:px-6
             "
           >
             {links.map((link) => (
@@ -105,12 +131,14 @@ export function Navbar() {
                   block
                   shrink-0
                   whitespace-nowrap
-                  text-xs
-                  tracking-[0.08em]
-                  text-looms-teal
                   pointer-events-auto
+                  text-[12px]
+                  font-medium
+                  tracking-[0.05em]
+                  text-looms-teal
                   transition-colors
                   hover:text-looms-gray
+                  xl:text-[13px]
                 "
               >
                 {link.label}
@@ -121,12 +149,32 @@ export function Navbar() {
           {/* =================================================
               RIGHT ACTIONS
               ================================================= */}
-          <div className="flex min-w-0 flex-1 items-center justify-end gap-1">
+          <div
+            className="
+              relative
+              z-[101]
+              flex
+              shrink-0
+              items-center
+              justify-end
+              gap-1
+              pointer-events-auto
+            "
+          >
             {/* SEARCH */}
             <Link
               href="/shop#catalog-search"
               aria-label="Search products"
-              className="relative z-[101] hidden h-11 w-11 shrink-0 place-items-center pointer-events-auto lg:grid"
+              className="
+                relative
+                z-[101]
+                grid
+                h-11
+                w-11
+                shrink-0
+                place-items-center
+                pointer-events-auto
+              "
             >
               <Icon
                 name="search"
@@ -138,7 +186,16 @@ export function Navbar() {
             <Link
               href="/wishlist"
               aria-label={`Wishlist, ${wishlist.length} items`}
-              className="relative z-[101] hidden h-11 w-11 shrink-0 place-items-center pointer-events-auto lg:grid"
+              className="
+                relative
+                z-[101]
+                grid
+                h-11
+                w-11
+                shrink-0
+                place-items-center
+                pointer-events-auto
+              "
             >
               {wishlist.length > 0 ? (
                 <span
@@ -155,18 +212,43 @@ export function Navbar() {
               )}
 
               {wishlist.length > 0 && (
-                <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-full bg-looms-teal text-[9px] text-looms-cream">
+                <span
+                  className="
+                    absolute
+                    right-0
+                    top-0
+                    grid
+                    h-4
+                    min-w-4
+                    place-items-center
+                    rounded-full
+                    bg-looms-teal
+                    px-1
+                    text-[9px]
+                    leading-none
+                    text-looms-cream
+                  "
+                >
                   {wishlist.length}
                 </span>
               )}
             </Link>
 
-            {/* CART */}
+            {/* BAG */}
             <button
               type="button"
               onClick={() => setOpen(true)}
               aria-label={`Open cart, ${itemCount} items`}
-              className="relative z-[101] grid h-11 w-11 shrink-0 place-items-center pointer-events-auto"
+              className="
+                relative
+                z-[101]
+                grid
+                h-11
+                w-11
+                shrink-0
+                place-items-center
+                pointer-events-auto
+              "
             >
               <Icon
                 name="bag"
@@ -174,7 +256,23 @@ export function Navbar() {
               />
 
               {itemCount > 0 && (
-                <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-full bg-looms-teal text-[9px] text-looms-cream">
+                <span
+                  className="
+                    absolute
+                    right-0
+                    top-0
+                    grid
+                    h-4
+                    min-w-4
+                    place-items-center
+                    rounded-full
+                    bg-looms-teal
+                    px-1
+                    text-[9px]
+                    leading-none
+                    text-looms-cream
+                  "
+                >
                   {itemCount}
                 </span>
               )}
@@ -201,14 +299,30 @@ export function Navbar() {
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation"
-            className="relative flex h-full w-[88%] max-w-sm flex-col bg-looms-cream px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(1.5rem,env(safe-area-inset-top))]"
+            className="
+              relative
+              flex
+              h-full
+              w-[88%]
+              max-w-sm
+              flex-col
+              bg-looms-cream
+              px-6
+              pb-[max(1.5rem,env(safe-area-inset-bottom))]
+              pt-[max(1.5rem,env(safe-area-inset-top))]
+            "
           >
             {/* MOBILE HEADER */}
             <div className="flex items-center justify-between">
               <Link
                 href="/"
                 onClick={() => setMenuOpen(false)}
-                className="font-display text-2xl tracking-[0.14em]"
+                className="
+                  font-display
+                  text-2xl
+                  tracking-[0.14em]
+                  text-looms-teal
+                "
               >
                 LOOMS
               </Link>
@@ -233,7 +347,14 @@ export function Navbar() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className="border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
+                  className="
+                    border-b
+                    border-looms-teal/15
+                    py-4
+                    text-sm
+                    tracking-[0.08em]
+                    text-looms-teal
+                  "
                 >
                   {link.label}
                 </Link>
@@ -243,14 +364,34 @@ export function Navbar() {
               <Link
                 href="/wishlist"
                 onClick={() => setMenuOpen(false)}
-                className="flex items-center justify-between border-b border-looms-teal/15 py-4 text-sm tracking-[0.08em]"
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  border-b
+                  border-looms-teal/15
+                  py-4
+                  text-sm
+                  tracking-[0.08em]
+                  text-looms-teal
+                "
               >
-                <span>
-                  Wishlist
-                </span>
+                <span>Wishlist</span>
 
                 {wishlist.length > 0 && (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-looms-teal px-1 text-[9px] text-looms-cream">
+                  <span
+                    className="
+                      grid
+                      h-5
+                      min-w-5
+                      place-items-center
+                      rounded-full
+                      bg-looms-teal
+                      px-1
+                      text-[9px]
+                      text-looms-cream
+                    "
+                  >
                     {wishlist.length}
                   </span>
                 )}
