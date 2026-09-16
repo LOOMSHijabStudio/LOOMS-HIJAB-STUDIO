@@ -65,6 +65,29 @@ function getPositiveInteger(
   return numericValue;
 }
 
+function getNonNegativeNumber(
+  object: JsonObject,
+  key: string
+): number {
+  const value = object[key];
+
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (
+    !Number.isFinite(numericValue) ||
+    numericValue < 0
+  ) {
+    return 0;
+  }
+
+  return numericValue;
+}
+
 /*
  * Mencari order ID secara fleksibel.
  *
@@ -92,11 +115,6 @@ function findOrderId(
       typeof candidate === "string" &&
       candidate.trim()
     ) {
-      /*
-       * Jangan anggap semua "id" sebagai
-       * order ID. Untuk id langsung,
-       * kita hanya prioritaskan orderId/order_id.
-       */
       if (
         key === "orderId" ||
         key === "order_id"
@@ -106,9 +124,6 @@ function findOrderId(
     }
   }
 
-  /*
-   * Cari di object order.
-   */
   const preferredKeys = [
     "order",
     "createdOrder",
@@ -133,11 +148,6 @@ function findOrderId(
     }
   }
 
-  /*
-   * Fallback:
-   * kalau object memiliki order_number,
-   * id kemungkinan besar adalah ID order.
-   */
   const hasOrderNumber =
     typeof value.order_number ===
       "string" &&
@@ -255,6 +265,26 @@ export async function POST(
 
     const rawAddress =
       body.address;
+
+    /*
+     * PROMO
+     *
+     * Data ini sekarang diterima dari
+     * checkout page dan diteruskan ke
+     * createOrder().
+     */
+
+    const promoCode =
+      getOptionalString(
+        body,
+        "promoCode"
+      );
+
+    const promoDiscount =
+      getNonNegativeNumber(
+        body,
+        "promoDiscount"
+      );
 
     /*
      * ==========================================
@@ -485,7 +515,7 @@ export async function POST(
             "Full address is required.",
         },
         {
-          status: 400,
+          status: 400
         }
       );
     }
@@ -581,6 +611,9 @@ export async function POST(
      * ==========================================
      * 7. CHECKOUT INPUT
      * ==========================================
+     *
+     * PROMO SEKARANG IKUT DITERUSKAN
+     * KE createOrder().
      */
 
     const checkoutInput = {
@@ -602,6 +635,10 @@ export async function POST(
         fullAddress,
         notes,
       },
+
+      promoCode,
+
+      promoDiscount,
     };
 
     /*
@@ -619,11 +656,6 @@ export async function POST(
      * ==========================================
      * 9. ORDER ID
      * ==========================================
-     *
-     * ID hanya diambil kalau memang tersedia.
-     *
-     * TIDAK boleh membuat checkout gagal
-     * hanya karena ID tidak terbaca.
      */
 
     const orderId =
