@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 type JsonObject = Record<string, unknown>;
 
 function isJsonObject(
-  value: unknown
+  value: unknown,
 ): value is JsonObject {
   return (
     typeof value === "object" &&
@@ -18,7 +18,7 @@ function isJsonObject(
 
 function getString(
   object: JsonObject,
-  key: string
+  key: string,
 ): string {
   const value = object[key];
 
@@ -29,7 +29,7 @@ function getString(
 
 function getOptionalString(
   object: JsonObject,
-  key: string
+  key: string,
 ): string | undefined {
   const value = object[key];
 
@@ -42,32 +42,15 @@ function getOptionalString(
   return cleaned || undefined;
 }
 
-function getPositiveInteger(
-  object: JsonObject,
-  key: string
-): number | null {
-  const value = object[key];
-
-  const numericValue =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : NaN;
-
-  if (
-    !Number.isInteger(numericValue) ||
-    numericValue < 1
-  ) {
-    return null;
-  }
-
-  return numericValue;
-}
+/*
+ * ==========================================
+ * NUMBER HELPERS
+ * ==========================================
+ */
 
 function getNonNegativeNumber(
   object: JsonObject,
-  key: string
+  key: string,
 ): number {
   const value = object[key];
 
@@ -88,14 +71,37 @@ function getNonNegativeNumber(
   return numericValue;
 }
 
+function getPositiveInteger(
+  object: JsonObject,
+  key: string,
+): number | null {
+  const value = object[key];
+
+  const numericValue =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : NaN;
+
+  if (
+    !Number.isInteger(numericValue) ||
+    numericValue < 1
+  ) {
+    return null;
+  }
+
+  return numericValue;
+}
+
 /*
- * Mencari order ID secara fleksibel.
- *
- * Tidak akan menggagalkan checkout kalau
- * ID tidak ditemukan.
+ * ==========================================
+ * ORDER ID
+ * ==========================================
  */
+
 function findOrderId(
-  value: unknown
+  value: unknown,
 ): string | null {
   if (!isJsonObject(value)) {
     return null;
@@ -115,6 +121,12 @@ function findOrderId(
       typeof candidate === "string" &&
       candidate.trim()
     ) {
+      /*
+       * Jangan menganggap semua "id" sebagai
+       * order ID.
+       *
+       * Prioritaskan orderId / order_id.
+       */
       if (
         key === "orderId" ||
         key === "order_id"
@@ -123,6 +135,12 @@ function findOrderId(
       }
     }
   }
+
+  /*
+   * ==========================================
+   * NESTED ORDER
+   * ==========================================
+   */
 
   const preferredKeys = [
     "order",
@@ -134,7 +152,8 @@ function findOrderId(
   ];
 
   for (const key of preferredKeys) {
-    const nested = value[key];
+    const nested =
+      value[key];
 
     if (
       isJsonObject(nested)
@@ -147,6 +166,12 @@ function findOrderId(
       }
     }
   }
+
+  /*
+   * ==========================================
+   * FALLBACK
+   * ==========================================
+   */
 
   const hasOrderNumber =
     typeof value.order_number ===
@@ -164,8 +189,14 @@ function findOrderId(
   return null;
 }
 
+/*
+ * ==========================================
+ * WHATSAPP URL
+ * ==========================================
+ */
+
 function findWhatsAppUrl(
-  value: unknown
+  value: unknown,
 ): string | null {
   if (!isJsonObject(value)) {
     return null;
@@ -188,7 +219,8 @@ function findWhatsAppUrl(
   ];
 
   for (const key of nestedKeys) {
-    const nested = value[key];
+    const nested =
+      value[key];
 
     if (
       isJsonObject(nested)
@@ -205,8 +237,14 @@ function findWhatsAppUrl(
   return null;
 }
 
+/*
+ * ==========================================
+ * POST
+ * ==========================================
+ */
+
 export async function POST(
-  request: Request
+  request: Request,
 ) {
   try {
     /*
@@ -218,7 +256,8 @@ export async function POST(
     let body: unknown;
 
     try {
-      body = await request.json();
+      body =
+        await request.json();
     } catch {
       return NextResponse.json(
         {
@@ -228,11 +267,13 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    if (!isJsonObject(body)) {
+    if (
+      !isJsonObject(body)
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -241,7 +282,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -254,7 +295,7 @@ export async function POST(
     const idempotencyKey =
       getString(
         body,
-        "idempotencyKey"
+        "idempotencyKey",
       );
 
     const rawItems =
@@ -267,28 +308,35 @@ export async function POST(
       body.address;
 
     /*
-     * PROMO
+     * ==========================================
+     * 3. PROMO
+     * ==========================================
      *
-     * Data ini sekarang diterima dari
-     * checkout page dan diteruskan ke
-     * createOrder().
+     * Promo berasal dari checkout page.
+     *
+     * promoCode:
+     * kode promo yang berhasil divalidasi.
+     *
+     * promoDiscount:
+     * nominal diskon yang sudah dihitung
+     * oleh endpoint validasi promo.
      */
 
     const promoCode =
       getOptionalString(
         body,
-        "promoCode"
+        "promoCode",
       );
 
     const promoDiscount =
       getNonNegativeNumber(
         body,
-        "promoDiscount"
+        "promoDiscount",
       );
 
     /*
      * ==========================================
-     * 3. BASIC VALIDATION
+     * 4. BASIC VALIDATION
      * ==========================================
      */
 
@@ -301,37 +349,43 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    if (!Array.isArray(rawItems)) {
+    if (
+      !Array.isArray(rawItems)
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Cart is empty.",
+          error:
+            "Cart is empty.",
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
-    if (rawItems.length === 0) {
+    if (
+      rawItems.length === 0
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Cart is empty.",
+          error:
+            "Cart is empty.",
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     if (
       !isJsonObject(
-        rawCustomer
+        rawCustomer,
       )
     ) {
       return NextResponse.json(
@@ -342,13 +396,13 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     if (
       !isJsonObject(
-        rawAddress
+        rawAddress,
       )
     ) {
       return NextResponse.json(
@@ -359,32 +413,32 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     /*
      * ==========================================
-     * 4. CUSTOMER
+     * 5. CUSTOMER
      * ==========================================
      */
 
     const fullName =
       getString(
         rawCustomer,
-        "fullName"
+        "fullName",
       );
 
     const whatsappNumber =
       getString(
         rawCustomer,
-        "whatsappNumber"
+        "whatsappNumber",
       );
 
     const email =
       getOptionalString(
         rawCustomer,
-        "email"
+        "email",
       );
 
     if (!fullName) {
@@ -396,7 +450,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -409,50 +463,50 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     /*
      * ==========================================
-     * 5. ADDRESS
+     * 6. ADDRESS
      * ==========================================
      */
 
     const province =
       getString(
         rawAddress,
-        "province"
+        "province",
       );
 
     const city =
       getString(
         rawAddress,
-        "city"
+        "city",
       );
 
     const district =
       getString(
         rawAddress,
-        "district"
+        "district",
       );
 
     const postalCode =
       getString(
         rawAddress,
-        "postalCode"
+        "postalCode",
       );
 
     const fullAddress =
       getString(
         rawAddress,
-        "fullAddress"
+        "fullAddress",
       );
 
     const notes =
       getOptionalString(
         rawAddress,
-        "notes"
+        "notes",
       );
 
     if (!province) {
@@ -464,7 +518,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -477,7 +531,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -490,7 +544,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -503,7 +557,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -515,14 +569,14 @@ export async function POST(
             "Full address is required.",
         },
         {
-          status: 400
-        }
+          status: 400,
+        },
       );
     }
 
     /*
      * ==========================================
-     * 6. ITEMS
+     * 7. ITEMS
      * ==========================================
      */
 
@@ -532,10 +586,12 @@ export async function POST(
       quantity: number;
     }> = [];
 
-    for (const rawItem of rawItems) {
+    for (
+      const rawItem of rawItems
+    ) {
       if (
         !isJsonObject(
-          rawItem
+          rawItem,
         )
       ) {
         return NextResponse.json(
@@ -546,26 +602,26 @@ export async function POST(
           },
           {
             status: 400,
-          }
+          },
         );
       }
 
       const productId =
         getString(
           rawItem,
-          "productId"
+          "productId",
         );
 
       const variantId =
         getOptionalString(
           rawItem,
-          "variantId"
+          "variantId",
         );
 
       const quantity =
         getPositiveInteger(
           rawItem,
-          "quantity"
+          "quantity",
         );
 
       if (!productId) {
@@ -577,11 +633,13 @@ export async function POST(
           },
           {
             status: 400,
-          }
+          },
         );
       }
 
-      if (quantity === null) {
+      if (
+        quantity === null
+      ) {
         return NextResponse.json(
           {
             success: false,
@@ -590,7 +648,7 @@ export async function POST(
           },
           {
             status: 400,
-          }
+          },
         );
       }
 
@@ -609,17 +667,18 @@ export async function POST(
 
     /*
      * ==========================================
-     * 7. CHECKOUT INPUT
+     * 8. CHECKOUT INPUT
      * ==========================================
      *
-     * PROMO SEKARANG IKUT DITERUSKAN
-     * KE createOrder().
+     * Promo sekarang ikut dibawa dari
+     * checkout page ke createOrder().
      */
 
     const checkoutInput = {
       idempotencyKey,
 
-      items: normalizedItems,
+      items:
+        normalizedItems,
 
       customer: {
         fullName,
@@ -643,19 +702,24 @@ export async function POST(
 
     /*
      * ==========================================
-     * 8. CREATE ORDER
+     * 9. CREATE ORDER
      * ==========================================
      */
 
     const result =
       await createOrder(
-        checkoutInput
+        checkoutInput,
       );
 
     /*
      * ==========================================
-     * 9. ORDER ID
+     * 10. ORDER ID
      * ==========================================
+     *
+     * ID hanya diambil kalau memang tersedia.
+     *
+     * Checkout tidak boleh gagal hanya karena
+     * order ID tidak berhasil ditemukan.
      */
 
     const orderId =
@@ -663,7 +727,7 @@ export async function POST(
 
     /*
      * ==========================================
-     * 10. WHATSAPP
+     * 11. WHATSAPP
      * ==========================================
      */
 
@@ -673,7 +737,7 @@ export async function POST(
     if (!whatsappUrl) {
       console.error(
         "Order created but WhatsApp URL was not found.",
-        result
+        result,
       );
 
       return NextResponse.json(
@@ -685,17 +749,19 @@ export async function POST(
         },
         {
           status: 500,
-        }
+        },
       );
     }
 
     /*
      * ==========================================
-     * 11. RESPONSE
+     * 12. RESPONSE
      * ==========================================
      */
 
-    if (isJsonObject(result)) {
+    if (
+      isJsonObject(result)
+    ) {
       return NextResponse.json({
         success: true,
 
@@ -719,7 +785,7 @@ export async function POST(
   } catch (error) {
     console.error(
       "Checkout API error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -732,7 +798,7 @@ export async function POST(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }
