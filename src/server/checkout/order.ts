@@ -8,11 +8,6 @@ import type { CheckoutInput } from "./validation";
 import type { CheckoutQuoteLine } from "./quote";
 
 import {
-  calculateShippingAmount,
-  createCheckoutQuote,
-} from "./quote";
-
-import {
   buildWhatsAppMessage,
   buildWhatsAppUrl,
 } from "./whatsapp";
@@ -67,21 +62,6 @@ function requestHash(
     .digest("hex");
 }
 
-function toNumber(
-  value: number | string | null | undefined,
-): number {
-  const numberValue = Number(value ?? 0);
-
-  return Number.isFinite(numberValue)
-    ? numberValue
-    : 0;
-}
-
-/*
- * ==========================================
- * CREATE ORDER
- * ==========================================
- */
 export async function createOrder(
   input: CheckoutInput,
 ): Promise<{
@@ -93,52 +73,15 @@ export async function createOrder(
 
   /*
    * ==========================================
-   * 1. HITUNG QUOTE SERVER
+   * CREATE ORDER
    * ==========================================
    *
-   * Ini menggunakan aturan ongkir yang sama
-   * dengan checkout website.
+   * Jangan menjalankan createCheckoutQuote()
+   * di sini karena function tersebut juga
+   * membuat idempotency key.
    *
-   * Contoh:
-   *
-   * Kabupaten Cirebon
-   * subtotal < 500k
-   * → Rp5.000
-   */
-  const quote =
-    await createCheckoutQuote(
-      input,
-    );
-
-  /*
-   * Promo berasal dari checkout page.
-   */
-  const promoDiscount =
-    Math.max(
-      0,
-      toNumber(
-        input.promoDiscount,
-      ),
-    );
-
-  /*
-   * Jangan sampai total negatif.
-   */
-  const finalTotal =
-    Math.max(
-      0,
-      quote.subtotal -
-        promoDiscount +
-        quote.shippingAmount,
-    );
-
-  /*
-   * ==========================================
-   * 2. CREATE ORDER VIA RPC
-   * ==========================================
-   *
-   * RPC lama tetap dipakai agar tidak
-   * menyebabkan error karena parameter baru.
+   * Order tetap dibuat oleh RPC yang sudah
+   * digunakan sebelumnya.
    */
   const {
     data,
@@ -188,10 +131,13 @@ export async function createOrder(
 
   /*
    * ==========================================
-   * 3. DATABASE ERROR
+   * DATABASE ERROR
    * ==========================================
    */
-  if (error || !data) {
+  if (
+    error ||
+    !data
+  ) {
     throw new Error(
       error?.message ||
         "Unable to create order",
@@ -203,92 +149,7 @@ export async function createOrder(
 
   /*
    * ==========================================
-   * 4. SINKRONKAN ONGKIR + TOTAL KE DATABASE
-   * ==========================================
-   *
-   * Ini bagian penting.
-   *
-   * RPC lama bisa saja masih menghasilkan
-   * shipping_amount = 15000.
-   *
-   * Kita overwrite dengan hasil quote
-   * website yang benar.
-   *
-   * Jadi:
-   *
-   * Website → Rp5.000
-   * Database → Rp5.000
-   * Admin → Rp5.000
-   * WhatsApp → Rp5.000
-   */
-  const {
-    data: updatedOrder,
-    error: updateError,
-  } = await client
-    .from("orders")
-    .update({
-      shipping_amount:
-        quote.shippingAmount,
-
-      total:
-        finalTotal,
-    })
-    .eq(
-      "id",
-      order.order.id,
-    )
-    .select(
-      "id, order_number, status, subtotal, shipping_amount, total, customer_notes",
-    )
-    .single();
-
-  if (
-    updateError ||
-    !updatedOrder
-  ) {
-    throw new Error(
-      updateError?.message ||
-        "Unable to synchronize order shipping and total",
-    );
-  }
-
-  /*
-   * Gunakan data database yang sudah
-   * disinkronkan sebagai sumber WhatsApp.
-   */
-  const synchronizedOrder:
-    CreatedOrder = {
-    ...order,
-
-    order: {
-      ...order.order,
-
-      id:
-        updatedOrder.id,
-
-      order_number:
-        updatedOrder.order_number,
-
-      status:
-        updatedOrder.status,
-
-      subtotal:
-        updatedOrder.subtotal,
-
-      shipping_amount:
-        updatedOrder.shipping_amount,
-
-      total:
-        updatedOrder.total,
-
-      customer_notes:
-        updatedOrder.customer_notes,
-    },
-  };
-
-  /*
-   * ==========================================
-   * 5. AUDIT LOG
+   * AUDIT LOG
    * ==========================================
    */
   await logAuditEvent({
@@ -299,52 +160,50 @@ export async function createOrder(
       "order",
 
     entityId:
-      synchronizedOrder.order.id,
+      order.order.id,
 
     metadata: {
       orderNumber:
-        synchronizedOrder.order
-          .order_number,
+        order.order.order_number,
 
       status:
-        synchronizedOrder.order
-          .status,
+        order.order.status,
 
       subtotal:
-        synchronizedOrder.order
-          .subtotal,
+        order.order.subtotal,
 
       shippingAmount:
-        synchronizedOrder.order
-          .shipping_amount,
+        order.order.shipping_amount,
 
       total:
-        synchronizedOrder.order
-          .total,
+        order.order.total,
 
+      /*
+       * Promo tetap dicatat di audit log.
+       */
       promoCode:
         input.promoCode ??
         null,
 
-      promoDiscount,
+      promoDiscount:
+        input.promoDiscount ??
+        0,
 
       customerName:
-        synchronizedOrder.customer
-          .full_name,
+        order.customer.full_name,
 
       customerWhatsapp:
-        synchronizedOrder.customer
+        order.customer
           .whatsapp_number,
 
       customerEmail:
-        synchronizedOrder.customer
-          .email,
+        order.customer.email,
 
       itemCount:
-        synchronizedOrder.items.length,
+        order.items.length,
 
       items:
-        synchronizedOrder.items.map(
+        order.items.map(
           (item) => ({
             productId:
               item.productId,
@@ -371,26 +230,30 @@ export async function createOrder(
 
   /*
    * ==========================================
-   * 6. WHATSAPP ORDER
+   * WHATSAPP ORDER
    * ==========================================
    *
-   * WhatsApp sekarang membaca order
-   * yang SUDAH disinkronkan ke database.
+   * Promo ditempelkan ke data WhatsApp.
+   *
+   * Ongkir tetap mengikuti nilai
+   * shipping_amount dari order/database.
    */
   const whatsappOrder:
     WhatsAppOrder = {
-    ...synchronizedOrder,
+    ...order,
 
     promoCode:
       input.promoCode ??
       null,
 
-    promoDiscount,
+    promoDiscount:
+      input.promoDiscount ??
+      0,
   };
 
   /*
    * ==========================================
-   * 7. WHATSAPP
+   * WHATSAPP MESSAGE
    * ==========================================
    */
   const whatsappMessage =
@@ -405,13 +268,11 @@ export async function createOrder(
 
   /*
    * ==========================================
-   * 8. RETURN
+   * RETURN
    * ==========================================
    */
   return {
-    order:
-      synchronizedOrder,
-
+    order,
     whatsappUrl,
   };
 }
