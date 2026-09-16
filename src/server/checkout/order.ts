@@ -76,12 +76,10 @@ export async function createOrder(
    * CREATE ORDER
    * ==========================================
    *
+   * Order tetap dibuat oleh RPC utama.
    * Jangan menjalankan createCheckoutQuote()
    * di sini karena function tersebut juga
    * membuat idempotency key.
-   *
-   * Order tetap dibuat oleh RPC yang sudah
-   * digunakan sebelumnya.
    */
   const {
     data,
@@ -149,6 +147,69 @@ export async function createOrder(
 
   /*
    * ==========================================
+   * SAVE PROMO TO DATABASE
+   * ==========================================
+   *
+   * Promo disimpan setelah order berhasil
+   * dibuat oleh RPC utama.
+   */
+  const promoDiscount =
+    Math.max(
+      0,
+      Math.min(
+        Number(
+          input.promoDiscount ?? 0,
+        ),
+        Number(
+          order.order.subtotal,
+        ),
+      ),
+    );
+
+  if (
+    input.promoCode &&
+    promoDiscount > 0
+  ) {
+    const {
+      error: promoError,
+    } = await client.rpc(
+      "save_order_promo",
+      {
+        p_order_id:
+          order.order.id,
+
+        p_promo_code:
+          input.promoCode,
+
+        p_discount_amount:
+          promoDiscount,
+      },
+    );
+
+    if (promoError) {
+      throw new Error(
+        promoError.message ||
+          "Unable to save promo",
+      );
+    }
+
+    /*
+     * Update total lokal supaya
+     * WhatsApp menggunakan total
+     * setelah diskon.
+     */
+    order.order.total =
+      Number(
+        order.order.subtotal,
+      ) -
+      promoDiscount +
+      Number(
+        order.order.shipping_amount,
+      );
+  }
+
+  /*
+   * ==========================================
    * AUDIT LOG
    * ==========================================
    */
@@ -178,16 +239,12 @@ export async function createOrder(
       total:
         order.order.total,
 
-      /*
-       * Promo tetap dicatat di audit log.
-       */
       promoCode:
         input.promoCode ??
         null,
 
       promoDiscount:
-        input.promoDiscount ??
-        0,
+        promoDiscount,
 
       customerName:
         order.customer.full_name,
@@ -232,11 +289,6 @@ export async function createOrder(
    * ==========================================
    * WHATSAPP ORDER
    * ==========================================
-   *
-   * Promo ditempelkan ke data WhatsApp.
-   *
-   * Ongkir tetap mengikuti nilai
-   * shipping_amount dari order/database.
    */
   const whatsappOrder:
     WhatsAppOrder = {
@@ -247,8 +299,7 @@ export async function createOrder(
       null,
 
     promoDiscount:
-      input.promoDiscount ??
-      0,
+      promoDiscount,
   };
 
   /*
