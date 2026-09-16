@@ -49,11 +49,17 @@ export type CreatedOrder = {
   >;
 };
 
+type WhatsAppOrder = CreatedOrder & {
+  promoCode?: string | null;
+  promoDiscount?: number;
+};
+
 /*
  * Membuat hash dari request checkout.
  *
- * Hash ini dipakai oleh sistem idempotency
- * untuk mencegah satu checkout dibuat berkali-kali.
+ * Promo juga ikut masuk ke hash karena
+ * CheckoutInput sekarang sudah mengandung
+ * promoCode dan promoDiscount.
  */
 function requestHash(input: CheckoutInput): string {
   return createHash("sha256")
@@ -64,99 +70,96 @@ function requestHash(input: CheckoutInput): string {
 /*
  * Membuat order.
  *
- * Alurnya:
+ * Alur:
  *
- * 1. Validasi sudah dilakukan di API route.
- * 2. RPC database membuat order secara atomik.
- * 3. Order berhasil dibuat.
- * 4. Pembelian dicatat ke Audit Logs.
- * 5. WhatsApp URL dibuat.
- * 6. Hasil dikembalikan ke checkout.
+ * 1. Database membuat order.
+ * 2. Audit log dibuat.
+ * 3. Promo dari checkout ditempelkan ke data
+ *    yang digunakan untuk membuat WhatsApp.
+ * 4. WhatsApp message dibuat.
  */
 export async function createOrder(
-  input: CheckoutInput
+  input: CheckoutInput,
 ): Promise<{
   order: CreatedOrder;
   whatsappUrl: string;
 }> {
-  const client = createSupabaseServiceClient();
+  const client =
+    createSupabaseServiceClient();
 
   /*
-   * Jalankan transaksi order di Supabase.
+   * ==========================================
+   * CREATE ORDER
+   * ==========================================
    *
-   * Harga, subtotal, ongkir, total, dan stok
-   * dihitung/diproses oleh database.
+   * Jangan mengirim promo ke RPC dulu.
+   *
+   * Ini sengaja agar tidak menyebabkan error
+   * kalau function create_order_atomically
+   * di Supabase saat ini belum memiliki
+   * parameter promo.
    */
-  const { data, error } = await client.rpc(
-    "create_order_atomically",
-    {
-      p_idempotency_key:
-        input.idempotencyKey,
+  const { data, error } =
+    await client.rpc(
+      "create_order_atomically",
+      {
+        p_idempotency_key:
+          input.idempotencyKey,
 
-      p_request_hash:
-        requestHash(input),
+        p_request_hash:
+          requestHash(input),
 
-      p_items:
-        input.items,
+        p_items:
+          input.items,
 
-      p_full_name:
-        input.customer.fullName,
+        p_full_name:
+          input.customer.fullName,
 
-      p_whatsapp_number:
-        input.customer.whatsappNumber,
+        p_whatsapp_number:
+          input.customer.whatsappNumber,
 
-      p_email:
-        input.customer.email ?? null,
+        p_email:
+          input.customer.email ?? null,
 
-      p_province:
-        input.address.province,
+        p_province:
+          input.address.province,
 
-      p_city:
-        input.address.city,
+        p_city:
+          input.address.city,
 
-      p_district:
-        input.address.district,
+        p_district:
+          input.address.district,
 
-      p_postal_code:
-        input.address.postalCode,
+        p_postal_code:
+          input.address.postalCode,
 
-      p_full_address:
-        input.address.fullAddress,
+        p_full_address:
+          input.address.fullAddress,
 
-      p_notes:
-        input.address.notes ?? null,
-    }
-  );
+        p_notes:
+          input.address.notes ?? null,
+      },
+    );
 
   /*
-   * Kalau database gagal membuat order,
-   * hentikan proses.
-   *
-   * Jangan buat WhatsApp URL.
+   * ==========================================
+   * DATABASE ERROR
+   * ==========================================
    */
   if (error || !data) {
     throw new Error(
       error?.message ||
-        "Unable to create order"
+        "Unable to create order",
     );
   }
 
-  const order = data as CreatedOrder;
+  const order =
+    data as CreatedOrder;
 
   /*
-   * ============================================
+   * ==========================================
    * AUDIT LOG
-   * ============================================
-   *
-   * Order sudah berhasil dibuat.
-   *
-   * Sekarang kita catat pembelian ke audit_logs.
-   *
-   * Action yang digunakan:
-   * admin.order_created
-   *
-   * Jadi nanti Admin → Audit Logs bisa melihat
-   * setiap order yang masuk.
+   * ==========================================
    */
   await logAuditEvent({
     action: "admin.order_created",
@@ -182,6 +185,16 @@ export async function createOrder(
       total:
         order.order.total,
 
+      /*
+       * Simpan informasi promo ke audit log
+       * juga agar jejak checkout tetap terlihat.
+       */
+      promoCode:
+        input.promoCode ?? null,
+
+      promoDiscount:
+        input.promoDiscount ?? 0,
+
       customerName:
         order.customer.full_name,
 
@@ -195,47 +208,69 @@ export async function createOrder(
         order.items.length,
 
       items:
-        order.items.map((item) => ({
-          productId:
-            item.productId,
+        order.items.map(
+          (item) => ({
+            productId:
+              item.productId,
 
-          variantId:
-            item.variantId ?? null,
+            variantId:
+              item.variantId ?? null,
 
-          productName:
-            item.product_name_snapshot,
+            productName:
+              item.product_name_snapshot,
 
-          variantName:
-            item.variant_name_snapshot,
+            variantName:
+              item.variant_name_snapshot,
 
-          quantity:
-            item.quantity,
+            quantity:
+              item.quantity,
 
-          unitPrice:
-            item.unit_price,
-        })),
+            unitPrice:
+              item.unit_price,
+          }),
+        ),
     },
   });
 
   /*
-   * ============================================
-   * WHATSAPP
-   * ============================================
+   * ==========================================
+   * WHATSAPP ORDER DATA
+   * ==========================================
    *
-   * WhatsApp hanya dibuat setelah order
-   * berhasil masuk database.
+   * Promo dari checkout sekarang ditempelkan
+   * ke object order yang dikirim ke
+   * buildWhatsAppMessage().
+   */
+  const whatsappOrder:
+    WhatsAppOrder = {
+    ...order,
+
+    promoCode:
+      input.promoCode ?? null,
+
+    promoDiscount:
+      input.promoDiscount ?? 0,
+  };
+
+  /*
+   * ==========================================
+   * WHATSAPP
+   * ==========================================
    */
   const whatsappMessage =
-    buildWhatsAppMessage(order);
+    buildWhatsAppMessage(
+      whatsappOrder,
+    );
 
   const whatsappUrl =
     buildWhatsAppUrl(
-      whatsappMessage
+      whatsappMessage,
     );
 
   /*
-   * Kembalikan order + WhatsApp URL
-   * ke API checkout.
+   * ==========================================
+   * RETURN
+   * ==========================================
    */
   return {
     order,
