@@ -8,6 +8,8 @@ type Order = {
   order_number: string;
   status: string;
   subtotal: number | string;
+  promo_code: string | null;
+  discount_amount: number | string;
   shipping_amount: number | string;
   total: number | string;
   created_at: string;
@@ -39,7 +41,8 @@ export default function AdminOrdersPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null);
 
   async function loadOrders() {
     try {
@@ -59,14 +62,14 @@ export default function AdminOrdersPage() {
         `/api/admin/orders?${params.toString()}`,
         {
           cache: "no-store",
-        }
+        },
       );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.error || "Failed to fetch orders"
+          data.error || "Failed to fetch orders",
         );
       }
 
@@ -76,7 +79,7 @@ export default function AdminOrdersPage() {
       setError(
         loadError instanceof Error
           ? loadError.message
-          : "Failed to fetch orders"
+          : "Failed to fetch orders",
       );
     } finally {
       setLoading(false);
@@ -89,7 +92,7 @@ export default function AdminOrdersPage() {
 
   async function deleteOrder(order: Order) {
     const confirmed = window.confirm(
-      `Hapus pesanan ${order.order_number}?\n\nData pesanan ini akan dihapus dan tidak bisa dikembalikan.`
+      `Hapus pesanan ${order.order_number}?\n\nData pesanan ini akan dihapus dan tidak bisa dikembalikan.`,
     );
 
     if (!confirmed) {
@@ -104,31 +107,31 @@ export default function AdminOrdersPage() {
         `/api/admin/orders/${order.id}`,
         {
           method: "DELETE",
-        }
+        },
       );
 
       const data = await response.json();
 
       if (!response.ok || !data.success) {
         throw new Error(
-          data.error || "Failed to delete order"
+          data.error || "Failed to delete order",
         );
       }
 
       setOrders((current) =>
         current.filter(
-          (item) => item.id !== order.id
-        )
+          (item) => item.id !== order.id,
+        ),
       );
 
       setTotal((current) =>
-        Math.max(0, current - 1)
+        Math.max(0, current - 1),
       );
     } catch (deleteError) {
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "Failed to delete order"
+          : "Failed to delete order",
       );
     } finally {
       setDeletingId(null);
@@ -137,12 +140,11 @@ export default function AdminOrdersPage() {
 
   const totalPages = Math.max(
     1,
-    Math.ceil(total / pageSize)
+    Math.ceil(total / pageSize),
   );
 
   return (
     <div className="space-y-6">
-
       {/* HEADER */}
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
@@ -172,7 +174,6 @@ export default function AdminOrdersPage() {
       {/* FILTER */}
       <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
           <div>
             <p className="text-sm font-medium text-gray-900">
               Filter Status
@@ -216,7 +217,6 @@ export default function AdminOrdersPage() {
 
       {/* ORDERS */}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-
         {loading ? (
           <div className="p-6 text-sm text-gray-500">
             Memuat pesanan...
@@ -232,7 +232,6 @@ export default function AdminOrdersPage() {
             {/* DESKTOP TABLE */}
             <div className="hidden overflow-x-auto md:block">
               <table className="min-w-full text-sm">
-
                 <thead className="border-b border-gray-200 bg-gray-50">
                   <tr>
                     <th className="px-5 py-4 text-left font-medium text-gray-600">
@@ -248,7 +247,7 @@ export default function AdminOrdersPage() {
                     </th>
 
                     <th className="px-5 py-4 text-left font-medium text-gray-600">
-                      Total
+                      Rincian Harga
                     </th>
 
                     <th className="px-5 py-4 text-left font-medium text-gray-600">
@@ -279,11 +278,14 @@ export default function AdminOrdersPage() {
 
                       <td className="px-5 py-4">
                         <p className="font-medium text-gray-900">
-                          {order.customers?.full_name ?? "-"}
+                          {order.customers?.full_name ??
+                            "-"}
                         </p>
 
                         <p className="mt-1 text-xs text-gray-500">
-                          {order.customers?.whatsapp_number ?? "-"}
+                          {order.customers
+                            ?.whatsapp_number ??
+                            "-"}
                         </p>
                       </td>
 
@@ -293,20 +295,82 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
 
-                      <td className="px-5 py-4 font-medium">
-                        {money(order.total)}
+                      {/* PRICE DETAILS */}
+                      <td className="px-5 py-4">
+                        <div className="space-y-1.5 text-sm">
+                          <div className="flex justify-between gap-6">
+                            <span className="text-gray-500">
+                              Subtotal
+                            </span>
+
+                            <span className="text-gray-700">
+                              {money(order.subtotal)}
+                            </span>
+                          </div>
+
+                          {Number(
+                            order.discount_amount,
+                          ) > 0 && (
+                            <>
+                              <div className="flex justify-between gap-6">
+                                <span className="text-gray-500">
+                                  Discount
+                                </span>
+
+                                <span className="font-medium text-red-600">
+                                  -
+                                  {money(
+                                    order.discount_amount,
+                                  )}
+                                </span>
+                              </div>
+
+                              {order.promo_code && (
+                                <p className="text-xs text-gray-400">
+                                  Promo:{" "}
+                                  {order.promo_code}
+                                </p>
+                              )}
+                            </>
+                          )}
+
+                          <div className="flex justify-between gap-6">
+                            <span className="text-gray-500">
+                              Shipping
+                            </span>
+
+                            <span className="text-gray-700">
+                              {Number(
+                                order.shipping_amount,
+                              ) === 0
+                                ? "Gratis"
+                                : money(
+                                    order.shipping_amount,
+                                  )}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex justify-between gap-6 border-t border-gray-100 pt-2">
+                            <span className="font-medium text-gray-900">
+                              Total
+                            </span>
+
+                            <span className="font-semibold text-looms-teal">
+                              {money(order.total)}
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
                       <td className="px-5 py-4 text-gray-600">
                         {new Date(
-                          order.created_at
+                          order.created_at,
                         ).toLocaleString("id-ID")}
                       </td>
 
                       {/* ACTIONS */}
                       <td className="px-5 py-4">
                         <div className="flex justify-end gap-2">
-
                           <Link
                             href={`/admin/orders/${order.id}`}
                             className="inline-flex rounded-lg bg-looms-teal px-4 py-2 text-xs font-medium text-white hover:opacity-90"
@@ -316,23 +380,25 @@ export default function AdminOrdersPage() {
 
                           <button
                             type="button"
-                            disabled={deletingId === order.id}
+                            disabled={
+                              deletingId ===
+                              order.id
+                            }
                             onClick={() =>
                               void deleteOrder(order)
                             }
                             className="inline-flex rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-xs font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {deletingId === order.id
+                            {deletingId ===
+                            order.id
                               ? "Menghapus..."
                               : "Hapus"}
                           </button>
-
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-
               </table>
             </div>
 
@@ -350,7 +416,8 @@ export default function AdminOrdersPage() {
                       </p>
 
                       <p className="mt-1 text-xs text-gray-500">
-                        {order.customers?.full_name ?? "-"}
+                        {order.customers?.full_name ??
+                          "-"}
                       </p>
                     </div>
 
@@ -359,33 +426,89 @@ export default function AdminOrdersPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Total
-                      </p>
+                  {/* MOBILE PRICE DETAILS */}
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-gray-500">
+                          Subtotal
+                        </span>
 
-                      <p className="mt-1 font-medium">
-                        {money(order.total)}
-                      </p>
+                        <span>
+                          {money(order.subtotal)}
+                        </span>
+                      </div>
+
+                      {Number(
+                        order.discount_amount,
+                      ) > 0 && (
+                        <>
+                          <div className="flex justify-between gap-4">
+                            <span className="text-gray-500">
+                              Discount
+                            </span>
+
+                            <span className="font-medium text-red-600">
+                              -
+                              {money(
+                                order.discount_amount,
+                              )}
+                            </span>
+                          </div>
+
+                          {order.promo_code && (
+                            <p className="text-xs text-gray-400">
+                              Promo:{" "}
+                              {order.promo_code}
+                            </p>
+                          )}
+                        </>
+                      )}
+
+                      <div className="flex justify-between gap-4">
+                        <span className="text-gray-500">
+                          Shipping
+                        </span>
+
+                        <span>
+                          {Number(
+                            order.shipping_amount,
+                          ) === 0
+                            ? "Gratis"
+                            : money(
+                                order.shipping_amount,
+                              )}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-4 border-t border-gray-200 pt-2">
+                        <span className="font-medium">
+                          Total
+                        </span>
+
+                        <span className="font-semibold text-looms-teal">
+                          {money(order.total)}
+                        </span>
+                      </div>
                     </div>
+                  </div>
 
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        Tanggal
-                      </p>
+                  <div className="text-sm">
+                    <p className="text-xs text-gray-500">
+                      Tanggal
+                    </p>
 
-                      <p className="mt-1">
-                        {new Date(
-                          order.created_at
-                        ).toLocaleDateString("id-ID")}
-                      </p>
-                    </div>
+                    <p className="mt-1">
+                      {new Date(
+                        order.created_at,
+                      ).toLocaleDateString(
+                        "id-ID",
+                      )}
+                    </p>
                   </div>
 
                   {/* MOBILE ACTIONS */}
                   <div className="flex gap-2">
-
                     <Link
                       href={`/admin/orders/${order.id}`}
                       className="flex-1 rounded-lg bg-looms-teal px-4 py-2.5 text-center text-sm font-medium text-white"
@@ -395,7 +518,9 @@ export default function AdminOrdersPage() {
 
                     <button
                       type="button"
-                      disabled={deletingId === order.id}
+                      disabled={
+                        deletingId === order.id
+                      }
                       onClick={() =>
                         void deleteOrder(order)
                       }
@@ -405,7 +530,6 @@ export default function AdminOrdersPage() {
                         ? "..."
                         : "Hapus"}
                     </button>
-
                   </div>
                 </div>
               ))}
@@ -417,19 +541,20 @@ export default function AdminOrdersPage() {
       {/* PAGINATION */}
       {!loading && orders.length > 0 && (
         <div className="flex items-center justify-between gap-4">
-
           <p className="text-sm text-gray-500">
             Halaman {page} dari {totalPages}
           </p>
 
           <div className="flex gap-2">
-
             <button
               type="button"
               disabled={page <= 1}
               onClick={() =>
                 setPage((current) =>
-                  Math.max(1, current - 1)
+                  Math.max(
+                    1,
+                    current - 1,
+                  ),
                 )
               }
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
@@ -439,21 +564,24 @@ export default function AdminOrdersPage() {
 
             <button
               type="button"
-              disabled={page >= totalPages}
+              disabled={
+                page >= totalPages
+              }
               onClick={() =>
                 setPage((current) =>
-                  Math.min(totalPages, current + 1)
+                  Math.min(
+                    totalPages,
+                    current + 1,
+                  ),
                 )
               }
               className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
               Berikutnya
             </button>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }
