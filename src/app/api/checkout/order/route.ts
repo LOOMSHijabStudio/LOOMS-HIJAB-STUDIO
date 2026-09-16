@@ -121,12 +121,6 @@ function findOrderId(
       typeof candidate === "string" &&
       candidate.trim()
     ) {
-      /*
-       * Jangan menganggap semua "id" sebagai
-       * order ID.
-       *
-       * Prioritaskan orderId / order_id.
-       */
       if (
         key === "orderId" ||
         key === "order_id"
@@ -311,15 +305,6 @@ export async function POST(
      * ==========================================
      * 3. PROMO
      * ==========================================
-     *
-     * Promo berasal dari checkout page.
-     *
-     * promoCode:
-     * kode promo yang berhasil divalidasi.
-     *
-     * promoDiscount:
-     * nominal diskon yang sudah dihitung
-     * oleh endpoint validasi promo.
      */
 
     const promoCode =
@@ -670,8 +655,7 @@ export async function POST(
      * 8. CHECKOUT INPUT
      * ==========================================
      *
-     * Promo sekarang ikut dibawa dari
-     * checkout page ke createOrder().
+     * Promo ikut dikirim ke createOrder().
      */
 
     const checkoutInput = {
@@ -715,11 +699,6 @@ export async function POST(
      * ==========================================
      * 10. ORDER ID
      * ==========================================
-     *
-     * ID hanya diambil kalau memang tersedia.
-     *
-     * Checkout tidak boleh gagal hanya karena
-     * order ID tidak berhasil ditemukan.
      */
 
     const orderId =
