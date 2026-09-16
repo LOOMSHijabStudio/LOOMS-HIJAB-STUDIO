@@ -4,12 +4,16 @@ type WhatsAppItem = {
   productId?: string | null;
   variantId?: string | null;
 
-  // Bentuk data baru dari RPC
+  /*
+   * Bentuk data baru dari RPC
+   */
   productName?: string | null;
   variantName?: string | null;
   unitPrice?: number | string | null;
 
-  // Bentuk data lama / snapshot database
+  /*
+   * Bentuk data lama / snapshot database
+   */
   product_name_snapshot?: string | null;
   variant_name_snapshot?: string | null;
   unit_price?: number | string | null;
@@ -44,16 +48,35 @@ type WhatsAppOrder = {
   };
 
   items: WhatsAppItem[];
+
+  /*
+   * ==========================================
+   * PROMO
+   * ==========================================
+   */
+  promoCode?: string | null;
+  promoDiscount?: number | string | null;
 };
 
-function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
+function toNumber(
+  value: unknown,
+): number {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
     return value;
   }
 
   if (typeof value === "string") {
-    const cleaned = value.replace(/[^\d.-]/g, "");
-    const parsed = Number(cleaned);
+    const cleaned =
+      value.replace(
+        /[^\d.-]/g,
+        "",
+      );
+
+    const parsed =
+      Number(cleaned);
 
     if (Number.isFinite(parsed)) {
       return parsed;
@@ -63,42 +86,65 @@ function toNumber(value: unknown): number {
   return 0;
 }
 
-function formatRupiah(value: unknown): string {
-  const amount = toNumber(value);
+function formatRupiah(
+  value: unknown,
+): string {
+  const amount =
+    toNumber(value);
 
-  return `Rp${Math.round(amount).toLocaleString("id-ID")}`;
+  return `Rp${Math.round(
+    amount,
+  ).toLocaleString("id-ID")}`;
 }
 
-function cleanText(value: unknown, fallback = "-"): string {
+function cleanText(
+  value: unknown,
+  fallback = "-",
+): string {
   if (typeof value !== "string") {
     return fallback;
   }
 
-  const text = value.trim();
+  const text =
+    value.trim();
 
   return text || fallback;
 }
 
-function getProductName(item: WhatsAppItem): string {
+function getProductName(
+  item: WhatsAppItem,
+): string {
   return cleanText(
-    item.productName ?? item.product_name_snapshot,
+    item.productName ??
+      item.product_name_snapshot,
     "Produk",
   );
 }
 
-function getVariantName(item: WhatsAppItem): string {
+function getVariantName(
+  item: WhatsAppItem,
+): string {
   return cleanText(
-    item.variantName ?? item.variant_name_snapshot,
+    item.variantName ??
+      item.variant_name_snapshot,
     "-",
   );
 }
 
-function getUnitPrice(item: WhatsAppItem): number {
-  return toNumber(item.unitPrice ?? item.unit_price);
+function getUnitPrice(
+  item: WhatsAppItem,
+): number {
+  return toNumber(
+    item.unitPrice ??
+      item.unit_price,
+  );
 }
 
-function getQuantity(item: WhatsAppItem): number {
-  const quantity = toNumber(item.quantity);
+function getQuantity(
+  item: WhatsAppItem,
+): number {
+  const quantity =
+    toNumber(item.quantity);
 
   if (quantity <= 0) {
     return 1;
@@ -107,145 +153,364 @@ function getQuantity(item: WhatsAppItem): number {
   return Math.floor(quantity);
 }
 
-function normalizeWhatsAppNumber(value: string): string {
-  let number = value.replace(/\D/g, "");
+function normalizeWhatsAppNumber(
+  value: string,
+): string {
+  let number =
+    value.replace(
+      /\D/g,
+      "",
+    );
 
   if (!number) {
     return "6281558066629";
   }
 
-  // 08xxxxxxxx -> 628xxxxxxxx
+  /*
+   * 08xxxxxxxx
+   * menjadi
+   * 628xxxxxxxx
+   */
   if (number.startsWith("08")) {
-    number = `62${number.slice(1)}`;
+    number =
+      `62${number.slice(1)}`;
   }
 
-  // +62xxxxxxxx -> 62xxxxxxxx
+  /*
+   * +620xxxxxxxx
+   * menjadi
+   * 62xxxxxxxx
+   */
   if (number.startsWith("620")) {
-    number = `62${number.slice(3)}`;
+    number =
+      `62${number.slice(3)}`;
   }
 
   return number;
 }
 
-export function buildWhatsAppMessage(order: WhatsAppOrder): string {
-  const orderNumber = cleanText(order.order?.order_number, "-");
+export function buildWhatsAppMessage(
+  order: WhatsAppOrder,
+): string {
+  const orderNumber =
+    cleanText(
+      order.order?.order_number,
+      "-",
+    );
 
-  const customerName = cleanText(
-    order.customer?.full_name,
-    "-",
-  );
+  const customerName =
+    cleanText(
+      order.customer?.full_name,
+      "-",
+    );
 
-  const customerWhatsApp = cleanText(
-    order.customer?.whatsapp_number,
-    "-",
-  );
+  const customerWhatsApp =
+    cleanText(
+      order.customer?.whatsapp_number,
+      "-",
+    );
 
-  const customerEmail = cleanText(
-    order.customer?.email,
-    "-",
-  );
+  const customerEmail =
+    cleanText(
+      order.customer?.email,
+      "-",
+    );
 
-  const province = cleanText(
-    order.address?.province,
-    "-",
-  );
+  const province =
+    cleanText(
+      order.address?.province,
+      "-",
+    );
 
-  const city = cleanText(
-    order.address?.city,
-    "-",
-  );
+  const city =
+    cleanText(
+      order.address?.city,
+      "-",
+    );
 
-  const district = cleanText(
-    order.address?.district,
-    "-",
-  );
+  const district =
+    cleanText(
+      order.address?.district,
+      "-",
+    );
 
-  const postalCode = cleanText(
-    order.address?.postal_code,
-    "-",
-  );
+  const postalCode =
+    cleanText(
+      order.address?.postal_code,
+      "-",
+    );
 
-  const fullAddress = cleanText(
-    order.address?.full_address,
-    "-",
-  );
+  const fullAddress =
+    cleanText(
+      order.address?.full_address,
+      "-",
+    );
 
-  const items = Array.isArray(order.items)
-    ? order.items
-    : [];
+  const items =
+    Array.isArray(order.items)
+      ? order.items
+      : [];
 
-  const subtotal = toNumber(order.order?.subtotal);
-  const shipping = toNumber(order.order?.shipping_amount);
-  const total = toNumber(order.order?.total);
+  /*
+   * ==========================================
+   * HARGA
+   * ==========================================
+   */
+  const subtotal =
+    toNumber(
+      order.order?.subtotal,
+    );
+
+  const shipping =
+    toNumber(
+      order.order?.shipping_amount,
+    );
+
+  /*
+   * Promo diambil dari checkout.
+   */
+  const promoCode =
+    cleanText(
+      order.promoCode,
+      "",
+    );
+
+  const promoDiscount =
+    Math.max(
+      0,
+      toNumber(
+        order.promoDiscount,
+      ),
+    );
+
+  /*
+   * Total WhatsApp dihitung ulang:
+   *
+   * subtotal
+   * - promo
+   * + ongkir
+   */
+  const total =
+    Math.max(
+      0,
+      subtotal -
+        promoDiscount +
+        shipping,
+    );
 
   const lines: string[] = [];
 
-  lines.push("Halo LOOMS, saya ingin konfirmasi pesanan.");
+  /*
+   * ==========================================
+   * HEADER
+   * ==========================================
+   */
+  lines.push(
+    "Halo LOOMS, saya ingin konfirmasi pesanan.",
+  );
+
   lines.push("");
-  lines.push(`Order: ${orderNumber}`);
+
+  lines.push(
+    `Order: ${orderNumber}`,
+  );
+
   lines.push("");
-  lines.push("DATA CUSTOMER");
-  lines.push(`Nama: ${customerName}`);
-  lines.push(`WhatsApp: ${customerWhatsApp}`);
-  lines.push(`Email: ${customerEmail}`);
+
+  /*
+   * ==========================================
+   * CUSTOMER
+   * ==========================================
+   */
+  lines.push(
+    "DATA CUSTOMER",
+  );
+
+  lines.push(
+    `Nama: ${customerName}`,
+  );
+
+  lines.push(
+    `WhatsApp: ${customerWhatsApp}`,
+  );
+
+  lines.push(
+    `Email: ${customerEmail}`,
+  );
+
   lines.push("");
-  lines.push("ALAMAT PENGIRIMAN");
-  lines.push(`Provinsi: ${province}`);
-  lines.push(`Kota: ${city}`);
-  lines.push(`Kecamatan: ${district}`);
-  lines.push(`Kode Pos: ${postalCode}`);
-  lines.push(`Alamat: ${fullAddress}`);
+
+  /*
+   * ==========================================
+   * ADDRESS
+   * ==========================================
+   */
+  lines.push(
+    "ALAMAT PENGIRIMAN",
+  );
+
+  lines.push(
+    `Provinsi: ${province}`,
+  );
+
+  lines.push(
+    `Kota: ${city}`,
+  );
+
+  lines.push(
+    `Kecamatan: ${district}`,
+  );
+
+  lines.push(
+    `Kode Pos: ${postalCode}`,
+  );
+
+  lines.push(
+    `Alamat: ${fullAddress}`,
+  );
+
   lines.push("");
+
+  /*
+   * ==========================================
+   * ITEMS
+   * ==========================================
+   */
   lines.push("PESANAN");
 
   if (items.length === 0) {
-    lines.push("1. Tidak ada item");
+    lines.push(
+      "1. Tidak ada item",
+    );
   } else {
-    items.forEach((item, index) => {
-      const productName = getProductName(item);
-      const variantName = getVariantName(item);
-      const quantity = getQuantity(item);
-      const unitPrice = getUnitPrice(item);
+    items.forEach(
+      (item, index) => {
+        const productName =
+          getProductName(item);
 
-      lines.push(`${index + 1}. ${productName}`);
-      lines.push(`   Variant: ${variantName}`);
-      lines.push(`   Qty: ${quantity}`);
-      lines.push(`   Harga: ${formatRupiah(unitPrice)}`);
-    });
+        const variantName =
+          getVariantName(item);
+
+        const quantity =
+          getQuantity(item);
+
+        const unitPrice =
+          getUnitPrice(item);
+
+        lines.push(
+          `${index + 1}. ${productName}`,
+        );
+
+        lines.push(
+          `   Variant: ${variantName}`,
+        );
+
+        lines.push(
+          `   Qty: ${quantity}`,
+        );
+
+        lines.push(
+          `   Harga: ${formatRupiah(
+            unitPrice,
+          )}`,
+        );
+      },
+    );
   }
 
   lines.push("");
-  lines.push("RINGKASAN PEMBAYARAN");
-  lines.push(`Subtotal: ${formatRupiah(subtotal)}`);
-  lines.push(`Ongkir: ${formatRupiah(shipping)}`);
-  lines.push(`Total: ${formatRupiah(total)}`);
 
-  const notes = cleanText(
-    order.order?.customer_notes,
-    "",
+  /*
+   * ==========================================
+   * PAYMENT SUMMARY
+   * ==========================================
+   */
+  lines.push(
+    "RINGKASAN PEMBAYARAN",
   );
+
+  lines.push(
+    `Subtotal: ${formatRupiah(
+      subtotal,
+    )}`,
+  );
+
+  /*
+   * Promo hanya ditampilkan kalau memang
+   * ada promo dan discount > 0.
+   */
+  if (
+    promoCode &&
+    promoDiscount > 0
+  ) {
+    lines.push(
+      `Promo: ${promoCode}`,
+    );
+
+    lines.push(
+      `Diskon: -${formatRupiah(
+        promoDiscount,
+      )}`,
+    );
+  }
+
+  lines.push(
+    `Ongkir: ${formatRupiah(
+      shipping,
+    )}`,
+  );
+
+  lines.push(
+    `Total: ${formatRupiah(
+      total,
+    )}`,
+  );
+
+  /*
+   * ==========================================
+   * NOTES
+   * ==========================================
+   */
+  const notes =
+    cleanText(
+      order.order?.customer_notes,
+      "",
+    );
 
   if (notes) {
     lines.push("");
-    lines.push("CATATAN");
+
+    lines.push(
+      "CATATAN",
+    );
+
     lines.push(notes);
   }
 
   lines.push("");
-  lines.push("Terima kasih.");
 
-  return lines.join("\n");
+  lines.push(
+    "Terima kasih.",
+  );
+
+  return lines.join(
+    "\n",
+  );
 }
 
 export function buildWhatsAppUrl(
   message: string,
   phoneNumber?: string,
 ): string {
-  const number = normalizeWhatsAppNumber(
-    phoneNumber ||
-      process.env.NEXT_PUBLIC_LOOMS_WHATSAPP_NUMBER ||
-      "6281558066629",
-  );
+  const number =
+    normalizeWhatsAppNumber(
+      phoneNumber ||
+        process.env
+          .NEXT_PUBLIC_LOOMS_WHATSAPP_NUMBER ||
+        "6281558066629",
+    );
 
-  return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+  return `https://wa.me/${number}?text=${encodeURIComponent(
+    message,
+  )}`;
 }
